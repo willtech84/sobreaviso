@@ -832,73 +832,132 @@ function gerarRelatorioMeses(mesesIds,tipo,dataEntrega) {
     const titulo=mesesIds.map(id=>allData.meses[id]?.label||'').join(', ');
     _renderRelatorio(linhas,titulo,periodo,'TOTAL SOBREAVISO: '+fmtMin(tEsc)+' | TRABALHADO: '+fmtMin(tTrab)+' | KM: '+tKM.toFixed(1),tipo,dataEntrega||'');
 }
+function _abrirHtmlBlob(html) {
+    // Compatível com WebView Android - usa blob URL + link download ou iframe modal
+    try {
+        const blob = new Blob([html], {type:'text/html'});
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+        document.body.appendChild(a); a.click();
+        setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+    } catch(e) {
+        // Fallback: exibir modal com iframe
+        _exibirRelatorioModal(html);
+    }
+}
+
+function _exibirRelatorioModal(html) {
+    let overlay = document.getElementById('modal-relatorio-view');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'modal-relatorio-view';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;background:white;display:flex;flex-direction:column';
+        overlay.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#1565c0;color:white">' +
+            '<span style="font-weight:700;font-size:0.9rem">📄 Relatório</span>' +
+            '<div style="display:flex;gap:8px">' +
+            '<button id="btn-rel-imprimir" style="background:white;color:#1565c0;border:none;padding:7px 14px;border-radius:7px;font-weight:700;cursor:pointer;font-size:0.8rem">🖨️ Imprimir</button>' +
+            '<button onclick="document.getElementById('modal-relatorio-view').style.display='none'" style="background:rgba(255,255,255,0.2);color:white;border:none;padding:7px 14px;border-radius:7px;font-weight:700;cursor:pointer;font-size:0.8rem">✕ Fechar</button>' +
+            '</div></div>' +
+            '<iframe id="rel-iframe" style="flex:1;border:none;width:100%"></iframe>';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+    const iframe = document.getElementById('rel-iframe');
+    iframe.srcdoc = html;
+    document.getElementById('btn-rel-imprimir').onclick = () => {
+        try { iframe.contentWindow.print(); } catch(e) {}
+    };
+}
+
 function _renderRelatorio(linhas,titulo,periodo,resumoTxt,tipo,dataEntrega) {
     const entStr=dataEntrega?'<p><b>DATA DE ENTREGA:</b> '+fmtD(dataEntrega)+'</p>':'';
-    if (tipo==='print') {
-        const rows=linhas.map(l=>{
-            if(l.tipo==='mes')return '<tr style="background:#1565c0;color:white"><td colspan="5" style="padding:6px;font-weight:bold">📅 '+l.label+'</td></tr>';
-            if(l.tipo==='corrida')return '<tr style="background:#ddd;font-weight:bold"><td>'+fmtD(l.co.data)+'</td><td>'+l.co.in+'-'+(l.co.out||'?')+'</td><td>'+l.co.tempo+'</td><td>'+l.co.km+'</td><td>SETOR: '+(l.co.setor||'---')+'</td></tr>';
-            return '<tr><td colspan="4"></td><td style="font-size:8pt;font-style:italic">• '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')</td></tr>';
-        }).join('');
-        const html='<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório</title>'+
-            '<style>body{font-family:Arial;padding:20px;font-size:9pt}.h{text-align:center;border:2px solid black;padding:10px;margin-bottom:15px}'+
-            'table{width:100%;border-collapse:collapse}th,td{border:1px solid black;padding:4px;font-size:8pt}th{background:#1565c0;color:white}'+
-            '.res{border:2px solid black;padding:8px;font-weight:bold;margin-top:10px}@media print{@page{margin:.5cm;size:A4}}</style></head><body>'+
-            '<div class="h"><h2 style="margin:0">RELATÓRIO MENSAL DE SOBREAVISO</h2>'+
-            '<p><b>PROFISSIONAL:</b> '+allData.user.toUpperCase()+'</p>'+
-            '<p><b>REFERÊNCIA:</b> '+titulo+'</p><p><b>ESCALAS:</b> '+periodo+'</p>'+entStr+'</div>'+
-            '<table><thead><tr><th>DATA</th><th>ENTRADA/SAÍDA</th><th>TEMPO</th><th>KM</th><th>SETOR / EXAMES</th></tr></thead>'+
-            '<tbody>'+rows+'</tbody></table><div class="res">'+resumoTxt+'</div>'+
-            '<script>window.onload=()=>window.print();<\/script></body></html>';
-        const w=window.open('','_blank'); w.document.write(html); w.document.close();
-    } else {
-        const{jsPDF}=window.jspdf;
-        const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-        doc.setFontSize(13); doc.setFont(undefined,'bold');
-        doc.text('RELATÓRIO MENSAL DE SOBREAVISO',105,14,{align:'center'});
-        doc.setFontSize(9); doc.setFont(undefined,'normal');
-        doc.text('PROFISSIONAL: '+allData.user.toUpperCase(),105,21,{align:'center'});
-        doc.text('REFERÊNCIA: '+titulo,105,26,{align:'center'});
-        let sy=31;
-        if(periodo){doc.text('ESCALAS: '+periodo,105,sy,{align:'center'});sy+=5;}
-        if(dataEntrega){doc.setFont(undefined,'bold');doc.text('DATA DE ENTREGA: '+fmtD(dataEntrega),105,sy,{align:'center'});doc.setFont(undefined,'normal');sy+=5;}
-        const body=linhas.map(l=>{
-            if(l.tipo==='mes')return[{content:'📅 '+l.label,colSpan:5,styles:{fillColor:[21,101,192],textColor:255,fontStyle:'bold'}}];
-            if(l.tipo==='corrida')return[fmtD(l.co.data),l.co.in+'-'+(l.co.out||'?'),l.co.tempo,l.co.km||'','SETOR: '+(l.co.setor||'---')];
-            return['','','','','• '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')'];
-        });
-        doc.autoTable({startY:sy,head:[['DATA','ENTRADA/SAÍDA','TEMPO','KM','SETOR / EXAMES']],body,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[21,101,192]},
-            didParseCell:d=>{if(d.section==='body'&&d.row.raw[1]&&!Array.isArray(d.row.raw[0])&&String(d.row.raw[1]).includes('-')&&d.row.raw[1]!==''){d.cell.styles.fillColor=[221,221,221];d.cell.styles.fontStyle='bold';}}
-        });
-        const y=doc.lastAutoTable.finalY+5;
-        doc.setFontSize(8); doc.setFont(undefined,'bold');
-        doc.setFillColor(240,244,248); doc.rect(14,y-3,182,9,'F'); doc.rect(14,y-3,182,9);
-        doc.text(resumoTxt,16,y+2);
-        doc.save('relatorio_'+titulo.replace(/\s+/g,'_')+'.pdf');
+
+    // ── PDF via jsPDF (download direto, sem window.open) ─────────────────
+    if (tipo!=='print') {
+        try {
+            const{jsPDF}=window.jspdf;
+            const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+            doc.setFontSize(13); doc.setFont(undefined,'bold');
+            doc.text('RELATORIO MENSAL DE SOBREAVISO',105,14,{align:'center'});
+            doc.setFontSize(9); doc.setFont(undefined,'normal');
+            doc.text('PROFISSIONAL: '+(allData.user||'').toUpperCase(),105,21,{align:'center'});
+            doc.text('REFERENCIA: '+titulo,105,26,{align:'center'});
+            let sy=31;
+            if(periodo){doc.text('ESCALAS: '+periodo,105,sy,{align:'center'});sy+=5;}
+            if(dataEntrega){doc.setFont(undefined,'bold');doc.text('ENTREGA: '+fmtD(dataEntrega),105,sy,{align:'center'});doc.setFont(undefined,'normal');sy+=5;}
+            const body=linhas.map(l=>{
+                if(l.tipo==='mes')return[{content:l.label,colSpan:5,styles:{fillColor:[21,101,192],textColor:255,fontStyle:'bold'}}];
+                if(l.tipo==='corrida')return[fmtD(l.co.data),l.co.in+'-'+(l.co.out||'?'),l.co.tempo,l.co.km||'','SETOR: '+(l.co.setor||'---')];
+                return['','','','','* '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')'];
+            });
+            doc.autoTable({startY:sy,head:[['DATA','ENTRADA/SAIDA','TEMPO','KM','SETOR / EXAMES']],body,
+                styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[21,101,192]},
+                didParseCell:d=>{if(d.section==='body'&&d.row.raw[1]&&!Array.isArray(d.row.raw[0])&&String(d.row.raw[1]).includes('-')&&d.row.raw[1]!==''){d.cell.styles.fillColor=[221,221,221];d.cell.styles.fontStyle='bold';}}
+            });
+            const y=doc.lastAutoTable.finalY+5;
+            doc.setFontSize(8); doc.setFont(undefined,'bold');
+            doc.setFillColor(240,244,248); doc.rect(14,y-3,182,9,'F'); doc.rect(14,y-3,182,9);
+            doc.text(resumoTxt,16,y+2);
+            // Usar output('blob') + link download — funciona em WebView Android
+            const pdfBlob = doc.output('blob');
+            const pdfUrl  = URL.createObjectURL(pdfBlob);
+            const link    = document.createElement('a');
+            link.href = pdfUrl;
+            link.download = 'relatorio_'+titulo.replace(/\s+/g,'_').replace(/[^\w-]/g,'')+'.pdf';
+            document.body.appendChild(link); link.click();
+            setTimeout(()=>{ document.body.removeChild(link); URL.revokeObjectURL(pdfUrl); }, 3000);
+        } catch(e) { alert('Erro ao gerar PDF: '+e.message); }
+        return;
     }
+
+    // ── Relatório HTML (impressão) ────────────────────────────────────────
+    const rows=linhas.map(l=>{
+        if(l.tipo==='mes')return '<tr style="background:#1565c0;color:white"><td colspan="5" style="padding:6px;font-weight:bold">'+l.label+'</td></tr>';
+        if(l.tipo==='corrida')return '<tr style="background:#ddd;font-weight:bold"><td>'+fmtD(l.co.data)+'</td><td>'+l.co.in+'-'+(l.co.out||'?')+'</td><td>'+l.co.tempo+'</td><td>'+l.co.km+'</td><td>SETOR: '+(l.co.setor||'---')+'</td></tr>';
+        return '<tr><td colspan="4"></td><td style="font-size:8pt;font-style:italic">* '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')</td></tr>';
+    }).join('');
+    const html='<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatorio</title>'+
+        '<style>body{font-family:Arial;padding:20px;font-size:9pt}'+
+        '.h{text-align:center;border:2px solid black;padding:10px;margin-bottom:15px}'+
+        'table{width:100%;border-collapse:collapse}th,td{border:1px solid black;padding:4px;font-size:8pt}'+
+        'th{background:#1565c0;color:white}.res{border:2px solid black;padding:8px;font-weight:bold;margin-top:10px}'+
+        '@media print{@page{margin:.5cm;size:A4}button{display:none}}</style></head><body>'+
+        '<div class="h"><h2 style="margin:0">RELATORIO MENSAL DE SOBREAVISO</h2>'+
+        '<p><b>PROFISSIONAL:</b> '+(allData.user||'').toUpperCase()+'</p>'+
+        '<p><b>REFERENCIA:</b> '+titulo+'</p>'+
+        (periodo?'<p><b>ESCALAS:</b> '+periodo+'</p>':'')+entStr+'</div>'+
+        '<table><thead><tr><th>DATA</th><th>ENTRADA/SAIDA</th><th>TEMPO</th><th>KM</th><th>SETOR / EXAMES</th></tr></thead>'+
+        '<tbody>'+rows+'</tbody></table>'+
+        '<div class="res">'+resumoTxt+'</div>'+
+        '</body></html>';
+    _exibirRelatorioModal(html);
 }
 
 /* ── FICHAS ── */
 function imprimirTodasFichas() {
     const d=dbMes();
+    if (!d.corridas.length) { alert('Nenhuma corrida registrada neste mês.'); return; }
     const fichas=d.corridas.map(co=>
-        '<div class="ficha"><div class="fh">FICHA DE CHAMADO / REQUISIÇÃO DE SOBREAVISO</div>'+
+        '<div class="ficha"><div class="fh">FICHA DE CHAMADO / REQUISICAO DE SOBREAVISO</div>'+
         '<div style="font-size:11pt;line-height:1.8;margin-top:20px">'+
-        '<b>DATA:</b> '+fmtD(co.data)+'<br><b>PROFISSIONAL:</b> '+allData.user.toUpperCase()+'<br>'+
+        '<b>DATA:</b> '+fmtD(co.data)+'<br><b>PROFISSIONAL:</b> '+(allData.user||'').toUpperCase()+'<br>'+
         '<b>SETOR DO CHAMADO:</b> '+(co.setor||'---')+'<br>'+
-        '<b>ENTRADA:</b> '+co.in+' | <b>SAÍDA:</b> '+(co.out||'em aberto')+'<br>'+
+        '<b>ENTRADA:</b> '+co.in+' | <b>SAIDA:</b> '+(co.out||'em aberto')+'<br>'+
         '<b>TEMPO TOTAL:</b> '+co.tempo+' | <b>KM:</b> '+co.km+'</div>'+
         '<div style="position:absolute;bottom:30px;width:90%;display:flex;justify-content:space-between">'+
         '<div style="border-top:1px solid black;width:45%;text-align:center;font-size:8pt">Assinatura Hospital</div>'+
-        '<div style="border-top:1px solid black;width:45%;text-align:center;font-size:8pt">Assinatura Técnico</div>'+
+        '<div style="border-top:1px solid black;width:45%;text-align:center;font-size:8pt">Assinatura Tecnico</div>'+
         '</div></div>'
     ).join('');
     const html='<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Fichas</title>'+
-        '<style>body{font-family:Arial;padding:10px;margin:0}.ficha{width:100%;height:9.2cm;border:1px dashed black;padding:15px;margin-bottom:.2cm;page-break-inside:avoid;position:relative}'+
+        '<style>body{font-family:Arial;padding:10px;margin:0}'+
+        '.ficha{width:100%;height:9.2cm;border:1px dashed black;padding:15px;margin-bottom:.2cm;page-break-inside:avoid;position:relative}'+
         '.fh{text-align:center;font-weight:bold;border-bottom:1px solid black;padding-bottom:5px;margin-bottom:10px;text-transform:uppercase}'+
-        '@media print{@page{margin:.5cm;size:A4}}</style></head><body>'+
-        fichas+'<script>window.onload=()=>window.print();<\/script></body></html>';
-    const w=window.open('','_blank'); w.document.write(html); w.document.close();
+        '@media print{@page{margin:.5cm;size:A4}button{display:none}}</style></head><body>'+
+        fichas+'</body></html>';
+    _exibirRelatorioModal(html);
 }
 
 /* ── GOOGLE DRIVE ── */
