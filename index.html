@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; padding-bottom: 20px; }
 
@@ -153,9 +154,11 @@
         .mf label { display: block; font-size: 0.75rem; font-weight: 700; color: #546e7a; margin-bottom: 5px; }
         .mf input { width: 100%; padding: 10px 12px; border: 1.5px solid #e0e7ef; border-radius: 9px; font-size: 0.9rem; font-family: inherit; outline: none; }
         .mf input:focus { border-color: #1565c0; }
+    
     </style>
 </head>
 <body>
+
 
 <div id="login-screen">
     <div class="login-box">
@@ -387,6 +390,7 @@
 </div>
 
 <script>
+
 'use strict';
 let allData = { user:'', meses:{}, usuarios:[] };
 let mesAtual = null;
@@ -394,680 +398,884 @@ let usuarioLogado = null;
 
 function dbMes() { return allData.meses[mesAtual] || { escalas:[], exames:[], corridas:[] }; }
 const hoje = () => new Date().toISOString().slice(0,10);
+function salvarLS() { localStorage.setItem('radiologiaDB_v2', JSON.stringify(allData)); }
 
 /* ── LOGIN ── */
 function iniciarApp() {
-    try { const s=localStorage.getItem('radiologiaDB_v2'); if(s) allData=JSON.parse(s); } catch(e){}
-    if (!allData.usuarios) allData.usuarios=[];
-    // Reconectar Drive automaticamente se tinha email salvo
+    try { const s = localStorage.getItem('radiologiaDB_v2'); if (s) allData = JSON.parse(s); } catch(e) {}
+    if (!allData.usuarios) allData.usuarios = [];
     _tentarReconectarDrive();
     const sessao = sessionStorage.getItem('sbSessao');
     if (sessao) {
         try {
-            const u=JSON.parse(sessao);
-            const ainda=allData.usuarios.find(x=>x.id===u.id);
-            if (ainda) { usuarioLogado=ainda; iniciarComUsuario(); return; }
-        } catch(e){}
+            const u = JSON.parse(sessao);
+            const ainda = allData.usuarios.find(x => x.id === u.id);
+            if (ainda) { usuarioLogado = ainda; iniciarComUsuario(); return; }
+        } catch(e) {}
     }
-    if (allData.usuarios.length===0) { iniciarComUsuario(); }
+    if (allData.usuarios.length === 0) { iniciarComUsuario(); }
     else {
         document.getElementById('login-screen').classList.add('active');
-        document.getElementById('login-subtitle').textContent='Entre com sua conta para continuar';
+        document.getElementById('login-subtitle').textContent = 'Entre com sua conta para continuar';
         try {
-            const creds=localStorage.getItem('sbCreds');
+            const creds = localStorage.getItem('sbCreds');
             if (creds) {
-                const {email,senha}=JSON.parse(creds);
-                document.getElementById('login-email').value=email||'';
-                document.getElementById('login-senha').value=senha||'';
-                document.getElementById('login-lembrar').checked=true;
+                const { email, senha } = JSON.parse(creds);
+                document.getElementById('login-email').value = email || '';
+                document.getElementById('login-senha').value = senha || '';
+                document.getElementById('login-lembrar').checked = true;
             }
-        } catch(e){}
+        } catch(e) {}
     }
 }
 
 function mostrarFormCadastro() {
-    document.getElementById('login-form-area').style.display='none';
-    document.getElementById('cadastro-form-area').style.display='block';
+    document.getElementById('login-form-area').style.display = 'none';
+    document.getElementById('cadastro-form-area').style.display = 'block';
 }
 function mostrarFormLogin() {
-    document.getElementById('cadastro-form-area').style.display='none';
-    document.getElementById('login-form-area').style.display='block';
+    document.getElementById('cadastro-form-area').style.display = 'none';
+    document.getElementById('login-form-area').style.display = 'block';
 }
-
 function fazerLogin() {
-    const email=document.getElementById('login-email').value.trim().toLowerCase();
-    const senha=document.getElementById('login-senha').value;
-    const lembrar=document.getElementById('login-lembrar').checked;
-    const u=allData.usuarios.find(x=>x.email.toLowerCase()===email && x.senha===senha);
-    if (!u) { document.getElementById('login-erro').style.display='block'; return; }
-    document.getElementById('login-erro').style.display='none';
-    if (lembrar) localStorage.setItem('sbCreds',JSON.stringify({email,senha}));
+    const email  = document.getElementById('login-email').value.trim().toLowerCase();
+    const senha  = document.getElementById('login-senha').value;
+    const lembrar= document.getElementById('login-lembrar').checked;
+    const u = allData.usuarios.find(x => x.email.toLowerCase() === email && x.senha === senha);
+    if (!u) { document.getElementById('login-erro').style.display = 'block'; return; }
+    document.getElementById('login-erro').style.display = 'none';
+    if (lembrar) localStorage.setItem('sbCreds', JSON.stringify({ email, senha }));
     else localStorage.removeItem('sbCreds');
-    usuarioLogado=u;
-    sessionStorage.setItem('sbSessao',JSON.stringify(u));
+    usuarioLogado = u;
+    sessionStorage.setItem('sbSessao', JSON.stringify(u));
     document.getElementById('login-screen').classList.remove('active');
     iniciarComUsuario();
 }
-
 function fazerCadastro() {
-    const nome=document.getElementById('cad-nome').value.trim();
-    const email=document.getElementById('cad-email').value.trim().toLowerCase();
-    const whatsapp=document.getElementById('cad-whatsapp').value.trim();
-    const senha=document.getElementById('cad-senha').value;
-    const erroEl=document.getElementById('cad-erro');
-    if (!nome||!email||!senha||senha.length<4) { erroEl.textContent='Preencha todos os campos (senha mín. 4 caracteres).'; erroEl.style.display='block'; return; }
-    if (allData.usuarios.find(x=>x.email.toLowerCase()===email)) { erroEl.textContent='E-mail já cadastrado.'; erroEl.style.display='block'; return; }
-    erroEl.style.display='none';
-    const u={ id:Date.now(), nome, email, whatsapp, senha, role:allData.usuarios.length===0?'admin':'user', criadoEm:new Date().toLocaleDateString('pt-BR') };
+    const nome     = document.getElementById('cad-nome').value.trim();
+    const email    = document.getElementById('cad-email').value.trim().toLowerCase();
+    const whatsapp = document.getElementById('cad-whatsapp').value.trim();
+    const senha    = document.getElementById('cad-senha').value;
+    const erroEl   = document.getElementById('cad-erro');
+    if (!nome || !email || !senha || senha.length < 4) {
+        erroEl.textContent = 'Preencha todos os campos (senha min. 4 caracteres).';
+        erroEl.style.display = 'block'; return;
+    }
+    if (allData.usuarios.find(x => x.email.toLowerCase() === email)) {
+        erroEl.textContent = 'E-mail ja cadastrado.'; erroEl.style.display = 'block'; return;
+    }
+    erroEl.style.display = 'none';
+    const u = { id: Date.now(), nome, email, whatsapp, senha,
+        role: allData.usuarios.length === 0 ? 'admin' : 'user',
+        criadoEm: new Date().toLocaleDateString('pt-BR') };
     allData.usuarios.push(u);
     salvarLS();
-    usuarioLogado=u;
-    sessionStorage.setItem('sbSessao',JSON.stringify(u));
+    usuarioLogado = u;
+    sessionStorage.setItem('sbSessao', JSON.stringify(u));
     document.getElementById('login-screen').classList.remove('active');
     iniciarComUsuario();
 }
-
 function iniciarComUsuario() {
     if (usuarioLogado) {
-        const b=document.getElementById('user-badge');
-        b.textContent=(usuarioLogado.role==='admin'?'🛡 ':'👤 ')+usuarioLogado.nome.split(' ')[0];
-        b.style.display='inline-flex';
-        if (!allData.user && usuarioLogado.nome) allData.user=usuarioLogado.nome;
+        const b = document.getElementById('user-badge');
+        b.textContent = (usuarioLogado.role === 'admin' ? '\u{1F6E1} ' : '\u{1F464} ') + usuarioLogado.nome.split(' ')[0];
+        b.style.display = 'inline-flex';
+        if (!allData.user && usuarioLogado.nome) allData.user = usuarioLogado.nome;
     }
     carregar();
 }
-
 function sairDaSessao() {
     sessionStorage.removeItem('sbSessao');
-    usuarioLogado=null;
+    usuarioLogado = null;
     fecharModal('modal-usuarios');
     location.reload();
 }
-
 function abrirUsuarios() {
-    const infoEl=document.getElementById('modal-usuarios-info');
-    const listaEl=document.getElementById('modal-usuarios-lista');
-    const isAdmin=usuarioLogado && usuarioLogado.role==='admin';
+    const infoEl  = document.getElementById('modal-usuarios-info');
+    const listaEl = document.getElementById('modal-usuarios-lista');
+    const isAdmin = usuarioLogado && usuarioLogado.role === 'admin';
     if (!isAdmin) {
-        const u=usuarioLogado;
-        infoEl.innerHTML='<b>Minha conta</b>';
-        listaEl.innerHTML=u?`<div class="user-card"><div class="user-avatar">${u.nome.charAt(0).toUpperCase()}</div><div class="user-info"><div class="user-nome">${u.nome} <span class="role-badge badge-user">Usuário</span></div><div class="user-sub">📧 ${u.email}</div>${u.whatsapp?`<div class="user-sub">📱 ${u.whatsapp}</div>`:''}</div></div>`:'';
+        const u = usuarioLogado;
+        infoEl.innerHTML = '<b>Minha conta</b>';
+        listaEl.innerHTML = u
+            ? '<div class="user-card"><div class="user-avatar">' + u.nome.charAt(0).toUpperCase() + '</div>'
+              + '<div class="user-info"><div class="user-nome">' + u.nome
+              + ' <span class="role-badge badge-user">Usuario</span></div>'
+              + '<div class="user-sub">\u{1F4E7} ' + u.email + '</div>'
+              + (u.whatsapp ? '<div class="user-sub">\u{1F4F1} ' + u.whatsapp + '</div>' : '')
+              + '</div></div>' : '';
     } else {
-        infoEl.innerHTML=`<span style="font-size:0.83rem;color:#546e7a"><b>${allData.usuarios.length}</b> usuário(s) cadastrado(s).</span>`;
-        listaEl.innerHTML=allData.usuarios.map(u=>{
-            const waNum=u.whatsapp?u.whatsapp.replace(/\D/g,''):'';
-            const waBt=waNum?`<a class="btn-contact btn-wa" href="https://wa.me/55${waNum}" target="_blank">💬 WhatsApp</a>`:'';
-            const emBt=u.email?`<a class="btn-contact btn-em" href="mailto:${u.email}" target="_blank">✉️ E-mail</a>`:'';
-            const delBt=u.id!==usuarioLogado?.id?`<button onclick="excluirUsuario(${u.id})" style="background:#c62828;color:white;border:none;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:0.72rem;font-weight:600;flex-shrink:0;align-self:flex-start">🗑</button>`:'';
-            return `<div class="user-card"><div class="user-avatar">${u.nome.charAt(0).toUpperCase()}</div><div class="user-info"><div class="user-nome">${u.nome} <span class="role-badge ${u.role==='admin'?'badge-admin':'badge-user'}">${u.role==='admin'?'Admin':'Usuário'}</span></div><div class="user-sub">📧 ${u.email}</div>${u.whatsapp?`<div class="user-sub">📱 ${u.whatsapp}</div>`:''}<div class="user-sub">🗓 ${u.criadoEm||'—'}</div><div class="contact-btns">${waBt}${emBt}</div></div>${delBt}</div>`;
-        }).join('')||'<p style="color:#90a4ae;font-size:0.85rem">Nenhum usuário.</p>';
+        infoEl.innerHTML = '<span style="font-size:0.83rem;color:#546e7a"><b>' + allData.usuarios.length + '</b> usuario(s).</span>';
+        listaEl.innerHTML = allData.usuarios.map(function(u) {
+            var waNum  = u.whatsapp ? u.whatsapp.replace(/\D/g,'') : '';
+            var waBt   = waNum ? '<a class="btn-contact btn-wa" href="https://wa.me/55' + waNum + '" target="_blank">\u{1F4AC} WhatsApp</a>' : '';
+            var emBt   = u.email ? '<a class="btn-contact btn-em" href="mailto:' + u.email + '">\u{2709}\uFE0F E-mail</a>' : '';
+            var delBt  = u.id !== (usuarioLogado && usuarioLogado.id)
+                ? '<button onclick="excluirUsuario(' + u.id + ')" style="background:#c62828;color:white;border:none;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:0.72rem;font-weight:600;flex-shrink:0">\u{1F5D1}</button>' : '';
+            return '<div class="user-card">'
+                + '<div class="user-avatar">' + u.nome.charAt(0).toUpperCase() + '</div>'
+                + '<div class="user-info"><div class="user-nome">' + u.nome
+                + ' <span class="role-badge ' + (u.role==='admin'?'badge-admin':'badge-user') + '">' + (u.role==='admin'?'Admin':'Usuario') + '</span></div>'
+                + '<div class="user-sub">\u{1F4E7} ' + u.email + '</div>'
+                + (u.whatsapp ? '<div class="user-sub">\u{1F4F1} ' + u.whatsapp + '</div>' : '')
+                + '<div class="user-sub">\u{1F5D3} ' + (u.criadoEm||'--') + '</div>'
+                + '<div class="contact-btns">' + waBt + emBt + '</div></div>' + delBt + '</div>';
+        }).join('') || '<p style="color:#90a4ae;font-size:0.85rem">Nenhum usuario.</p>';
     }
     abrirModal('modal-usuarios');
 }
-
 function excluirUsuario(id) {
-    if (!confirm('Excluir este usuário?')) return;
-    allData.usuarios=allData.usuarios.filter(u=>u.id!==id);
+    if (!confirm('Excluir este usuario?')) return;
+    allData.usuarios = allData.usuarios.filter(function(u){ return u.id !== id; });
     salvarLS(); abrirUsuarios();
 }
 
 /* ── DADOS ── */
-function salvarLS() { localStorage.setItem('radiologiaDB_v2',JSON.stringify(allData)); }
-
 function salvarDados() {
-    allData.user=document.getElementById('userName').value;
+    allData.user = document.getElementById('userName').value;
     if (!mesAtual) return;
-    const m=allData.meses[mesAtual];
-    m.escalas=[];
-    document.querySelectorAll('.escala-item').forEach(item=>{
-        m.escalas.push({ data:item.querySelector('.sc-data').value, in:item.querySelector('.sc-in').value, dataF:item.querySelector('.sc-data-f').value, out:item.querySelector('.sc-out').value });
+    var m = allData.meses[mesAtual];
+    m.escalas = [];
+    document.querySelectorAll('.escala-item').forEach(function(item) {
+        m.escalas.push({
+            data:  item.querySelector('.sc-data').value,
+            in:    item.querySelector('.sc-in').value,
+            dataF: item.querySelector('.sc-data-f').value,
+            out:   item.querySelector('.sc-out').value
+        });
     });
     salvarLS(); render(); driveDebounce();
 }
-
 function carregar() {
-    try { const s=localStorage.getItem('radiologiaDB_v2'); if(s) allData=JSON.parse(s); } catch(e){}
-    if (!allData.usuarios) allData.usuarios=[];
-    if (!allData.meses) allData.meses={};
+    try { var s = localStorage.getItem('radiologiaDB_v2'); if (s) allData = JSON.parse(s); } catch(e) {}
+    if (!allData.usuarios) allData.usuarios = [];
+    if (!allData.meses)    allData.meses    = {};
     if (!Object.keys(allData.meses).length) {
-        const old=localStorage.getItem('radiologiaDB');
-        if (old) { try { const o=JSON.parse(old); const id='mes_'+Date.now(); allData.meses[id]={label:'Importado',escalas:o.escalas||[],exames:o.exames||[],corridas:o.corridas||[]}; salvarLS(); } catch(e){} }
+        var old = localStorage.getItem('radiologiaDB');
+        if (old) {
+            try {
+                var o = JSON.parse(old);
+                var id = 'mes_' + Date.now();
+                allData.meses[id] = { label:'Importado', escalas:o.escalas||[], exames:o.exames||[], corridas:o.corridas||[] };
+                salvarLS();
+            } catch(e) {}
+        }
     }
-    document.getElementById('userName').value=allData.user||'';
+    document.getElementById('userName').value = allData.user || '';
     popularSelectMes();
-    const ids=Object.keys(allData.meses);
-    if (ids.length>0) { mesAtual=ids[ids.length-1]; document.getElementById('sel-mes').value=mesAtual; carregarMes(); }
-    else { const id='mes_'+Date.now(); allData.meses[id]={label:labelMesAtual(),escalas:[],exames:[],corridas:[]}; mesAtual=id; popularSelectMes(); document.getElementById('sel-mes').value=mesAtual; }
+    var ids = Object.keys(allData.meses);
+    if (ids.length > 0) {
+        mesAtual = ids[ids.length - 1];
+        document.getElementById('sel-mes').value = mesAtual;
+        carregarMes();
+    } else {
+        var nid = 'mes_' + Date.now();
+        allData.meses[nid] = { label: labelMesAtual(), escalas:[], exames:[], corridas:[] };
+        mesAtual = nid; popularSelectMes();
+        document.getElementById('sel-mes').value = mesAtual;
+    }
     preencherDataHoje();
 }
-
 function popularSelectMes() {
-    document.getElementById('sel-mes').innerHTML=Object.entries(allData.meses).map(([id,m])=>`<option value="${id}">${m.label}</option>`).join('');
+    document.getElementById('sel-mes').innerHTML = Object.entries(allData.meses)
+        .map(function(e){ return '<option value="' + e[0] + '">' + e[1].label + '</option>'; }).join('');
 }
-function labelMesAtual() { return new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'}).replace(/^\w/,c=>c.toUpperCase()); }
-function carregarMes() { document.getElementById('lista-escalas').innerHTML=''; const m=allData.meses[mesAtual]; if(m)m.escalas.forEach(e=>addEscala(e.data,e.in,e.dataF,e.out)); atualizarContadorEscalas(); render(); }
-function trocarMes() { mesAtual=document.getElementById('sel-mes').value; carregarMes(); }
-function novoMes() { document.getElementById('input-novo-mes').value=labelMesAtual(); abrirModal('modal-novo-mes'); }
+function labelMesAtual() {
+    return new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'}).replace(/^\w/,function(c){return c.toUpperCase();});
+}
+function carregarMes() {
+    document.getElementById('lista-escalas').innerHTML = '';
+    var m = allData.meses[mesAtual];
+    if (m) m.escalas.forEach(function(e){ addEscala(e.data, e.in, e.dataF, e.out); });
+    atualizarContadorEscalas(); render();
+}
+function trocarMes()  { mesAtual = document.getElementById('sel-mes').value; carregarMes(); }
+function novoMes()    { document.getElementById('input-novo-mes').value = labelMesAtual(); abrirModal('modal-novo-mes'); }
 function criarNovoMes() {
-    const label=document.getElementById('input-novo-mes').value.trim();
+    var label = document.getElementById('input-novo-mes').value.trim();
     if (!label) return;
-    const id='mes_'+Date.now();
-    allData.meses[id]={label,escalas:[],exames:[],corridas:[]};
-    mesAtual=id; salvarLS(); popularSelectMes(); document.getElementById('sel-mes').value=mesAtual;
-    document.getElementById('lista-escalas').innerHTML=''; render(); fecharModal('modal-novo-mes'); preencherDataHoje();
+    var id = 'mes_' + Date.now();
+    allData.meses[id] = { label:label, escalas:[], exames:[], corridas:[] };
+    mesAtual = id; salvarLS(); popularSelectMes();
+    document.getElementById('sel-mes').value = mesAtual;
+    document.getElementById('lista-escalas').innerHTML = '';
+    render(); fecharModal('modal-novo-mes'); preencherDataHoje();
 }
 function excluirMesAtual() {
-    const ids=Object.keys(allData.meses);
-    if (ids.length<=1) { alert('Não é possível excluir o único mês.'); return; }
-    confirmarDel('Excluir o mês "'+allData.meses[mesAtual].label+'" e todos os seus dados?',()=>{
+    var ids = Object.keys(allData.meses);
+    if (ids.length <= 1) { alert('Nao e possivel excluir o unico mes.'); return; }
+    confirmarDel('Excluir o mes "' + allData.meses[mesAtual].label + '" e todos os seus dados?', function() {
         delete allData.meses[mesAtual]; salvarLS(); popularSelectMes();
-        mesAtual=Object.keys(allData.meses).slice(-1)[0];
-        document.getElementById('sel-mes').value=mesAtual;
-        document.getElementById('lista-escalas').innerHTML=''; carregarMes();
+        mesAtual = Object.keys(allData.meses).slice(-1)[0];
+        document.getElementById('sel-mes').value = mesAtual;
+        document.getElementById('lista-escalas').innerHTML = ''; carregarMes();
     });
 }
-function preencherDataHoje() { const h=hoje(); document.getElementById('ex-data').value=h; document.getElementById('co-data').value=h; }
+function preencherDataHoje() {
+    var h = hoje();
+    document.getElementById('ex-data').value = h;
+    document.getElementById('co-data').value = h;
+}
 
 /* ── TABS ── */
-function tab(e,n) {
-    document.querySelectorAll('.tab-content,.tab-btn').forEach(el=>el.classList.remove('active'));
-    document.getElementById(n).classList.add('active'); e.currentTarget.classList.add('active');
-    if (n==='resumo') renderResumo();
+function tab(e, n) {
+    document.querySelectorAll('.tab-content,.tab-btn').forEach(function(el){ el.classList.remove('active'); });
+    document.getElementById(n).classList.add('active');
+    e.currentTarget.classList.add('active');
+    if (n === 'resumo') renderResumo();
 }
 
 /* ── ESCALAS ── */
-let _escAberto=false;
+var _escAberto = false;
 function toggleEscalas() {
-    _escAberto=!_escAberto;
-    document.getElementById('escalas-body').style.display=_escAberto?'block':'none';
-    document.getElementById('btn-toggle-esc').textContent=_escAberto?'◀ Ocultar':'▶ Mostrar';
+    _escAberto = !_escAberto;
+    document.getElementById('escalas-body').style.display = _escAberto ? 'block' : 'none';
+    document.getElementById('btn-toggle-esc').textContent  = _escAberto ? 'Ocultar' : 'Mostrar';
 }
-function atualizarContadorEscalas() { document.getElementById('escala-count').textContent=document.querySelectorAll('.escala-item').length; }
-function addEscala(data,inT,dataF,outT) {
-    data=data||''; inT=inT||''; dataF=dataF||''; outT=outT||'';
-    const div=document.createElement('div'); div.className='escala-item';
-    div.innerHTML=`<div class="form-group"><label>Início</label><input type="date" class="sc-data" value="${data}" onchange="salvarDados()"></div>`+
-        `<div class="form-group"><label>Hora</label><input type="time" class="sc-in" value="${inT}" onchange="salvarDados()"></div>`+
-        `<div class="form-group"><label>Fim</label><input type="date" class="sc-data-f" value="${dataF}" onchange="salvarDados()"></div>`+
-        `<div class="form-group"><label>Hora</label><input type="time" class="sc-out" value="${outT}" onchange="salvarDados()"></div>`+
-        `<button onclick="this.parentElement.remove();salvarDados();atualizarContadorEscalas()" style="background:#c62828;color:white;border:none;padding:8px;border-radius:7px;cursor:pointer;align-self:flex-end">✕</button>`;
-    document.getElementById('lista-escalas').appendChild(div); atualizarContadorEscalas();
+function atualizarContadorEscalas() {
+    document.getElementById('escala-count').textContent = document.querySelectorAll('.escala-item').length;
+}
+function addEscala(data, inT, dataF, outT) {
+    data = data||''; inT = inT||''; dataF = dataF||''; outT = outT||'';
+    var div = document.createElement('div');
+    div.className = 'escala-item';
+    div.innerHTML =
+        '<div class="form-group"><label>Inicio</label><input type="date" class="sc-data" value="' + data + '" onchange="salvarDados()"></div>'
+      + '<div class="form-group"><label>Hora</label><input type="time" class="sc-in" value="' + inT + '" onchange="salvarDados()"></div>'
+      + '<div class="form-group"><label>Fim</label><input type="date" class="sc-data-f" value="' + dataF + '" onchange="salvarDados()"></div>'
+      + '<div class="form-group"><label>Hora</label><input type="time" class="sc-out" value="' + outT + '" onchange="salvarDados()"></div>'
+      + '<button onclick="this.parentElement.remove();salvarDados();atualizarContadorEscalas()" style="background:#c62828;color:white;border:none;padding:8px;border-radius:7px;cursor:pointer;align-self:flex-end">X</button>';
+    document.getElementById('lista-escalas').appendChild(div);
+    atualizarContadorEscalas();
 }
 
 /* ── EXAMES ── */
 function addExame() {
-    const id=document.getElementById('ex-id').value;
-    const dados={data:document.getElementById('ex-data').value,hora:document.getElementById('ex-hora').value,setor:document.getElementById('ex-setor').value,nome:document.getElementById('ex-nome').value,pac:document.getElementById('ex-pac').value};
-    const m=allData.meses[mesAtual];
-    if (id) { const idx=m.exames.findIndex(e=>e.id==id); m.exames[idx]={...m.exames[idx],...dados}; }
-    else m.exames.push({id:Date.now(),...dados});
-    const dd=dados.data, ss=dados.setor;
+    var id    = document.getElementById('ex-id').value;
+    var dados = {
+        data:  document.getElementById('ex-data').value,
+        hora:  document.getElementById('ex-hora').value,
+        setor: document.getElementById('ex-setor').value,
+        nome:  document.getElementById('ex-nome').value,
+        pac:   document.getElementById('ex-pac').value
+    };
+    var m = allData.meses[mesAtual];
+    if (id) {
+        var idx = m.exames.findIndex(function(e){ return e.id == id; });
+        m.exames[idx] = Object.assign({}, m.exames[idx], dados);
+    } else {
+        m.exames.push(Object.assign({ id: Date.now() }, dados));
+    }
+    var dd = dados.data, ss = dados.setor;
     limparCamposExame(false);
-    document.getElementById('ex-data').value=dd; document.getElementById('ex-setor').value=ss;
+    document.getElementById('ex-data').value  = dd;
+    document.getElementById('ex-setor').value = ss;
     salvarDados();
 }
 function editExame(id) {
-    const ex=dbMes().exames.find(i=>i.id==id);
-    document.getElementById('ex-id').value=ex.id; document.getElementById('ex-data').value=ex.data;
-    document.getElementById('ex-hora').value=ex.hora; document.getElementById('ex-setor').value=ex.setor;
-    document.getElementById('ex-nome').value=ex.nome; document.getElementById('ex-pac').value=ex.pac;
-    document.getElementById('btn-save-ex').innerText='Atualizar Exame';
-    document.getElementById('btn-cancel-ex').style.display='inline-block';
+    var ex = dbMes().exames.find(function(i){ return i.id == id; });
+    document.getElementById('ex-id').value    = ex.id;
+    document.getElementById('ex-data').value  = ex.data;
+    document.getElementById('ex-hora').value  = ex.hora;
+    document.getElementById('ex-setor').value = ex.setor;
+    document.getElementById('ex-nome').value  = ex.nome;
+    document.getElementById('ex-pac').value   = ex.pac;
+    document.getElementById('btn-save-ex').innerText = 'Atualizar Exame';
+    document.getElementById('btn-cancel-ex').style.display = 'inline-block';
     abrirFormExame();
 }
 function limparCamposExame(r) {
-    document.getElementById('ex-id').value=''; document.getElementById('ex-hora').value='';
-    document.getElementById('ex-nome').value=''; document.getElementById('ex-pac').value='';
-    if (r!==false) { document.getElementById('ex-data').value=hoje(); document.getElementById('ex-setor').value=''; }
-    document.getElementById('btn-save-ex').innerText='Salvar Exame';
-    document.getElementById('btn-cancel-ex').style.display='none';
+    document.getElementById('ex-id').value   = '';
+    document.getElementById('ex-hora').value = '';
+    document.getElementById('ex-nome').value = '';
+    document.getElementById('ex-pac').value  = '';
+    if (r !== false) { document.getElementById('ex-data').value = hoje(); document.getElementById('ex-setor').value = ''; }
+    document.getElementById('btn-save-ex').innerText = 'Salvar Exame';
+    document.getElementById('btn-cancel-ex').style.display = 'none';
 }
 
 /* ── CORRIDAS ── */
-let _pendDados=null, _pendId=null;
+var _pendDados = null, _pendId = null;
 function addCorrida() {
-    const id=document.getElementById('co-id').value;
-    const dados={data:document.getElementById('co-data').value,in:document.getElementById('co-in').value,out:document.getElementById('co-out').value,km:document.getElementById('co-km').value,setor:document.getElementById('co-setor').value,tempo:calcDiffSimple(document.getElementById('co-in').value,document.getElementById('co-out').value)};
-    if (!dados.out) { _pendDados=dados; _pendId=id; abrirModal('modal-corrida-aberta'); return; }
-    _persistirCorrida(id,dados);
+    var id = document.getElementById('co-id').value;
+    var dados = {
+        data:  document.getElementById('co-data').value,
+        in:    document.getElementById('co-in').value,
+        out:   document.getElementById('co-out').value,
+        km:    document.getElementById('co-km').value,
+        setor: document.getElementById('co-setor').value,
+        tempo: calcDiffSimple(document.getElementById('co-in').value, document.getElementById('co-out').value)
+    };
+    if (!dados.out) { _pendDados = dados; _pendId = id; abrirModal('modal-corrida-aberta'); return; }
+    _persistirCorrida(id, dados);
 }
-function confirmarCorridaAberta() { fecharModal('modal-corrida-aberta'); _persistirCorrida(_pendId,_pendDados); }
-function _persistirCorrida(id,dados) {
-    const m=allData.meses[mesAtual];
-    if (id) { const idx=m.corridas.findIndex(c=>c.id==id); m.corridas[idx]={...m.corridas[idx],...dados}; }
-    else m.corridas.push({id:Date.now(),...dados});
+function confirmarCorridaAberta() { fecharModal('modal-corrida-aberta'); _persistirCorrida(_pendId, _pendDados); }
+function _persistirCorrida(id, dados) {
+    var m = allData.meses[mesAtual];
+    if (id) {
+        var idx = m.corridas.findIndex(function(c){ return c.id == id; });
+        m.corridas[idx] = Object.assign({}, m.corridas[idx], dados);
+    } else {
+        m.corridas.push(Object.assign({ id: Date.now() }, dados));
+    }
     limparCamposCorrida(); salvarDados();
 }
 function editCorrida(id) {
-    const c=dbMes().corridas.find(i=>i.id==id);
-    document.getElementById('co-id').value=c.id; document.getElementById('co-data').value=c.data;
-    document.getElementById('co-in').value=c.in; document.getElementById('co-out').value=c.out||'';
-    document.getElementById('co-km').value=c.km; document.getElementById('co-setor').value=c.setor||'';
-    document.getElementById('btn-save-co').innerText='Atualizar Corrida';
-    document.getElementById('btn-cancel-co').style.display='inline-block';
+    var c = dbMes().corridas.find(function(i){ return i.id == id; });
+    document.getElementById('co-id').value    = c.id;
+    document.getElementById('co-data').value  = c.data;
+    document.getElementById('co-in').value    = c.in;
+    document.getElementById('co-out').value   = c.out || '';
+    document.getElementById('co-km').value    = c.km;
+    document.getElementById('co-setor').value = c.setor || '';
+    document.getElementById('btn-save-co').innerText = 'Atualizar Corrida';
+    document.getElementById('btn-cancel-co').style.display = 'inline-block';
     abrirFormCorrida();
 }
 function limparCamposCorrida() {
-    ['co-id','co-in','co-out','co-km','co-setor'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('co-data').value=hoje();
-    document.getElementById('btn-save-co').innerText='Salvar Corrida';
-    document.getElementById('btn-cancel-co').style.display='none';
+    ['co-id','co-in','co-out','co-km','co-setor'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('co-data').value = hoje();
+    document.getElementById('btn-save-co').innerText = 'Salvar Corrida';
+    document.getElementById('btn-cancel-co').style.display = 'none';
 }
 
-/* ── EXCLUSÃO ── */
-function del(type,id) { confirmarDel(type==='exames'?'Excluir este exame?':'Excluir esta corrida?',()=>{ allData.meses[mesAtual][type]=allData.meses[mesAtual][type].filter(i=>i.id!==id); salvarDados(); }); }
-function confirmarDel(msg,cb) { document.getElementById('modal-del-msg').textContent=msg; document.getElementById('modal-del-confirm').onclick=()=>{fecharModal('modal-del');cb();}; abrirModal('modal-del'); }
+/* ── EXCLUSAO ── */
+function del(type, id) {
+    confirmarDel(type === 'exames' ? 'Excluir este exame?' : 'Excluir esta corrida?', function() {
+        allData.meses[mesAtual][type] = allData.meses[mesAtual][type].filter(function(i){ return i.id !== id; });
+        salvarDados();
+    });
+}
+function confirmarDel(msg, cb) {
+    document.getElementById('modal-del-msg').textContent = msg;
+    document.getElementById('modal-del-confirm').onclick = function(){ fecharModal('modal-del'); cb(); };
+    abrirModal('modal-del');
+}
 
 /* ── TOGGLE TABELA EXAMES ── */
-let _tblEx=false;
+var _tblEx = false;
 function toggleTabelaExames() {
-    _tblEx=!_tblEx;
-    document.getElementById('tbl-exames-wrapper').style.display=_tblEx?'block':'none';
-    document.getElementById('btn-toggle-tbl-ex').textContent=_tblEx?'◀ Ocultar':'▶ Mostrar';
+    _tblEx = !_tblEx;
+    document.getElementById('tbl-exames-wrapper').style.display = _tblEx ? 'block' : 'none';
+    document.getElementById('btn-toggle-tbl-ex').textContent = _tblEx ? 'Ocultar' : 'Mostrar';
 }
 
 /* ── RENDER ── */
 function render() {
-    const d=dbMes();
-    document.querySelector('#tbl-exames tbody').innerHTML=d.exames.map(ex=>
-        `<tr><td>${fmtD(ex.data)}</td><td>${ex.hora}</td><td>${ex.setor}</td><td>${ex.nome}</td><td>${ex.pac}</td><td>`+
-        `<button class="btn-mini" style="background:#f9a825;color:#000" onclick="editExame(${ex.id})">✏️</button> `+
-        `<button class="btn-mini" style="background:#c62828" onclick="del('exames',${ex.id})">🗑</button></td></tr>`
-    ).join('');
-    const ce=document.getElementById('exames-count'); if(ce)ce.textContent=d.exames.length;
-    document.querySelector('#tbl-corridas tbody').innerHTML=d.corridas.map(co=>
-        `<tr class="${!co.out?'aberta':''}"><td>${fmtD(co.data)}</td><td>${co.in}</td>`+
-        `<td>${co.out||'<span style="color:#e65100;font-weight:600">em aberto</span>'}</td>`+
-        `<td>${co.tempo}</td><td>${co.km}</td><td>${co.setor||''}</td><td>`+
-        `<button class="btn-mini" style="background:#f9a825;color:#000" onclick="editCorrida(${co.id})">✏️</button> `+
-        `<button class="btn-mini" style="background:#c62828" onclick="del('corridas',${co.id})">🗑</button></td></tr>`
-    ).join('');
+    var d = dbMes();
+    document.querySelector('#tbl-exames tbody').innerHTML = d.exames.map(function(ex) {
+        return '<tr><td>' + fmtD(ex.data) + '</td><td>' + ex.hora + '</td><td>' + ex.setor + '</td><td>' + ex.nome + '</td><td>' + ex.pac + '</td>'
+             + '<td><button class="btn-mini" style="background:#f9a825;color:#000" onclick="editExame(' + ex.id + ')">Editar</button> '
+             + '<button class="btn-mini" style="background:#c62828" onclick="del(\'exames\',' + ex.id + ')">Excluir</button></td></tr>';
+    }).join('');
+    var ce = document.getElementById('exames-count');
+    if (ce) ce.textContent = d.exames.length;
+    document.querySelector('#tbl-corridas tbody').innerHTML = d.corridas.map(function(co) {
+        return '<tr class="' + (!co.out ? 'aberta' : '') + '">'
+             + '<td>' + fmtD(co.data) + '</td><td>' + co.in + '</td>'
+             + '<td>' + (co.out || '<span style="color:#e65100;font-weight:600">em aberto</span>') + '</td>'
+             + '<td>' + co.tempo + '</td><td>' + co.km + '</td><td>' + (co.setor||'') + '</td>'
+             + '<td><button class="btn-mini" style="background:#f9a825;color:#000" onclick="editCorrida(' + co.id + ')">Editar</button> '
+             + '<button class="btn-mini" style="background:#c62828" onclick="del(\'corridas\',' + co.id + ')">Excluir</button></td></tr>';
+    }).join('');
 }
 
 /* ── RESUMO ── */
 function renderResumo() {
-    const d=dbMes();
-    if (!d.escalas.length) { document.getElementById('resumo-conteudo').innerHTML='<p style="color:#90a4ae;padding:20px">Nenhuma escala cadastrada.</p>'; return; }
-    let tKM=0,tTrab=0,tEsc=0,html='';
-    d.escalas.forEach((esc,i)=>{
-        const em=calcDiffFull(esc.data,esc.in,esc.dataF,esc.out); tEsc+=em;
-        const dtIn=new Date(`${esc.data}T${esc.in}`),dtOut=new Date(`${esc.dataF}T${esc.out}`);
-        const cors=d.corridas.filter(co=>{const dt=new Date(`${co.data}T${co.in}`);return dt>=dtIn&&dt<=dtOut;});
-        const km=cors.reduce((s,c)=>s+(parseFloat(c.km)||0),0);
-        const tr=cors.reduce((s,c)=>{const[h,m]=(c.tempo||'0:0').split(':').map(Number);return s+h*60+m;},0);
-        tKM+=km; tTrab+=tr;
-        html+=`<div class="resumo-card"><h4>Escala ${i+1}: ${fmtD(esc.data)} ${esc.in} → ${fmtD(esc.dataF)} ${esc.out}</h4>`+
-            `<div class="resumo-row"><span>⏱ Período sobreaviso</span><span>${fmtMin(em)}</span></div>`+
-            `<div class="resumo-row"><span>🚗 Corridas</span><span>${cors.length}</span></div>`+
-            `<div class="resumo-row"><span>⏳ Tempo trabalhado</span><span>${fmtMin(tr)}</span></div>`+
-            `<div class="resumo-row"><span>📍 KM rodado</span><span>${km.toFixed(1)} km</span></div></div>`;
+    var d = dbMes();
+    if (!d.escalas.length) {
+        document.getElementById('resumo-conteudo').innerHTML = '<p style="color:#90a4ae;padding:20px">Nenhuma escala cadastrada.</p>';
+        return;
+    }
+    var tKM = 0, tTrab = 0, tEsc = 0, html = '';
+    d.escalas.forEach(function(esc, i) {
+        var em = calcDiffFull(esc.data, esc.in, esc.dataF, esc.out); tEsc += em;
+        var dtIn  = new Date(esc.data  + 'T' + esc.in);
+        var dtOut = new Date(esc.dataF + 'T' + esc.out);
+        var cors  = d.corridas.filter(function(co){ var dt = new Date(co.data+'T'+co.in); return dt>=dtIn && dt<=dtOut; });
+        var km    = cors.reduce(function(s,c){ return s+(parseFloat(c.km)||0); }, 0);
+        var tr    = cors.reduce(function(s,c){ var p=(c.tempo||'0:0').split(':').map(Number); return s+p[0]*60+p[1]; }, 0);
+        tKM += km; tTrab += tr;
+        html += '<div class="resumo-card"><h4>Escala ' + (i+1) + ': ' + fmtD(esc.data) + ' ' + esc.in + ' - ' + fmtD(esc.dataF) + ' ' + esc.out + '</h4>'
+             + '<div class="resumo-row"><span>Periodo sobreaviso</span><span>' + fmtMin(em) + '</span></div>'
+             + '<div class="resumo-row"><span>Corridas</span><span>' + cors.length + '</span></div>'
+             + '<div class="resumo-row"><span>Tempo trabalhado</span><span>' + fmtMin(tr) + '</span></div>'
+             + '<div class="resumo-row"><span>KM rodado</span><span>' + km.toFixed(1) + ' km</span></div></div>';
     });
-    html+=`<div class="resumo-card resumo-total"><h4>📊 TOTAL GERAL DO MÊS</h4>`+
-        `<div class="resumo-row"><span>⏱ Total sobreaviso</span><span>${fmtMin(tEsc)}</span></div>`+
-        `<div class="resumo-row"><span>⏳ Total trabalhado</span><span>${fmtMin(tTrab)}</span></div>`+
-        `<div class="resumo-row"><span>📍 Total KM</span><span>${tKM.toFixed(1)} km</span></div>`+
-        `<div class="resumo-row"><span>🔬 Total exames</span><span>${d.exames.length}</span></div></div>`;
-    document.getElementById('resumo-conteudo').innerHTML=html;
+    html += '<div class="resumo-card resumo-total"><h4>TOTAL GERAL DO MES</h4>'
+          + '<div class="resumo-row"><span>Total sobreaviso</span><span>' + fmtMin(tEsc) + '</span></div>'
+          + '<div class="resumo-row"><span>Total trabalhado</span><span>' + fmtMin(tTrab) + '</span></div>'
+          + '<div class="resumo-row"><span>Total KM</span><span>' + tKM.toFixed(1) + ' km</span></div>'
+          + '<div class="resumo-row"><span>Total exames</span><span>' + d.exames.length + '</span></div></div>';
+    document.getElementById('resumo-conteudo').innerHTML = html;
 }
 
-/* ── FABs ── */
+/* ── FORM SCROLL ── */
 function abrirFormExame() {
-    document.querySelectorAll('.tab-content,.tab-btn').forEach(el=>el.classList.remove('active'));
-    document.getElementById('exames').classList.add('active'); document.querySelectorAll('.tab-btn')[0].classList.add('active');
-    document.getElementById('exames').scrollIntoView({behavior:'smooth',block:'start'});
-    setTimeout(()=>document.getElementById('ex-hora').focus(),400);
+    document.querySelectorAll('.tab-content,.tab-btn').forEach(function(el){ el.classList.remove('active'); });
+    document.getElementById('exames').classList.add('active');
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    document.getElementById('exames').scrollIntoView({ behavior:'smooth', block:'start' });
+    setTimeout(function(){ document.getElementById('ex-hora').focus(); }, 400);
 }
 function abrirFormCorrida() {
-    document.querySelectorAll('.tab-content,.tab-btn').forEach(el=>el.classList.remove('active'));
-    document.getElementById('corridas').classList.add('active'); document.querySelectorAll('.tab-btn')[1].classList.add('active');
-    document.getElementById('corridas').scrollIntoView({behavior:'smooth',block:'start'});
-    setTimeout(()=>document.getElementById('co-in').focus(),400);
+    document.querySelectorAll('.tab-content,.tab-btn').forEach(function(el){ el.classList.remove('active'); });
+    document.getElementById('corridas').classList.add('active');
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    document.getElementById('corridas').scrollIntoView({ behavior:'smooth', block:'start' });
+    setTimeout(function(){ document.getElementById('co-in').focus(); }, 400);
 }
 
 /* ── UTILS ── */
-function calcDiffSimple(s,e){if(!s||!e)return'00:00';const[h1,m1]=s.split(':').map(Number),[h2,m2]=e.split(':').map(Number);let min=(h2*60+m2)-(h1*60+m1);if(min<0)min+=1440;return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');}
-function calcDiffFull(d1,t1,d2,t2){if(!d1||!t1||!d2||!t2)return 0;return Math.floor((new Date(d2+'T'+t2)-new Date(d1+'T'+t1))/60000);}
-function fmtMin(min){return Math.floor(min/60)+'h '+( min%60)+'m';}
-function fmtD(d){if(!d)return'';const[y,m,dia]=d.split('-');return dia+'/'+m+'/'+y;}
+function calcDiffSimple(s, e) {
+    if (!s || !e) return '00:00';
+    var p1 = s.split(':').map(Number), p2 = e.split(':').map(Number);
+    var min = (p2[0]*60+p2[1]) - (p1[0]*60+p1[1]);
+    if (min < 0) min += 1440;
+    return String(Math.floor(min/60)).padStart(2,'0') + ':' + String(min%60).padStart(2,'0');
+}
+function calcDiffFull(d1, t1, d2, t2) {
+    if (!d1||!t1||!d2||!t2) return 0;
+    return Math.floor((new Date(d2+'T'+t2) - new Date(d1+'T'+t1)) / 60000);
+}
+function fmtMin(min) { return Math.floor(min/60) + 'h ' + (min%60) + 'm'; }
+function fmtD(d) { if (!d) return ''; var p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 
 /* ── MODAIS ── */
-function abrirModal(id){document.getElementById(id).classList.add('active');}
-function fecharModal(id){document.getElementById(id).classList.remove('active');}
+function abrirModal(id)  { document.getElementById(id).classList.add('active'); }
+function fecharModal(id) { document.getElementById(id).classList.remove('active'); }
 
-/* ── HISTÓRICO ── */
+/* ── HISTORICO ── */
 function abrirHistorico() {
-    document.getElementById('hist-lista').innerHTML=Object.entries(allData.meses).map(([id,m])=>
-        `<div class="hist-item"><input type="checkbox" id="chk_${id}" value="${id}">`+
-        `<label for="chk_${id}" style="flex:1;cursor:pointer"><div class="hist-item-title">${m.label}</div>`+
-        `<div class="hist-item-sub">${m.corridas.length} corridas · ${m.exames.length} exames · ${m.escalas.length} escalas</div></label></div>`
-    ).join('');
+    document.getElementById('hist-lista').innerHTML = Object.entries(allData.meses).map(function(e) {
+        var id = e[0], m = e[1];
+        return '<div class="hist-item">'
+             + '<input type="checkbox" id="chk_' + id + '" value="' + id + '">'
+             + '<label for="chk_' + id + '" style="flex:1;cursor:pointer">'
+             + '<div class="hist-item-title">' + m.label + '</div>'
+             + '<div class="hist-item-sub">' + m.corridas.length + ' corridas - ' + m.exames.length + ' exames - ' + m.escalas.length + ' escalas</div>'
+             + '</label></div>';
+    }).join('');
     abrirModal('modal-hist');
 }
 function relatorioHistorico(tipo) {
-    const ids=[...document.querySelectorAll('#hist-lista input:checked')].map(el=>el.value);
-    if (!ids.length){alert('Selecione ao menos um mês.');return;}
-    fecharModal('modal-hist'); gerarRelatorioMeses(ids,tipo);
+    var ids = Array.from(document.querySelectorAll('#hist-lista input:checked')).map(function(el){ return el.value; });
+    if (!ids.length) { alert('Selecione ao menos um mes.'); return; }
+    fecharModal('modal-hist'); gerarRelatorioMeses(ids, tipo);
 }
 
-/* ── RELATÓRIO ── */
-let _filtroTipo='pdf', _filtroModo='mes';
+/* ── RELATORIO ── */
+var _filtroTipo = 'pdf', _filtroModo = 'mes';
 function abrirFiltroRelatorio(tipo) {
-    _filtroTipo=tipo; _filtroModo='mes';
-    document.getElementById('modal-filtro-titulo').textContent=tipo==='pdf'?'📄 Gerar PDF':'🖨️ Gerar Relatório';
-    document.getElementById('btn-filtro-gerar').style.background=tipo==='pdf'?'#c62828':'#4527a0';
-    document.getElementById('filtro-data-entrega').value=hoje();
+    _filtroTipo = tipo; _filtroModo = 'mes';
+    document.getElementById('modal-filtro-titulo').textContent = tipo === 'pdf' ? 'Gerar PDF' : 'Gerar Relatorio';
+    document.getElementById('btn-filtro-gerar').style.background = tipo === 'pdf' ? '#c62828' : '#4527a0';
+    document.getElementById('filtro-data-entrega').value = hoje();
     alternarFiltroTipo('mes');
-    const m=allData.meses[mesAtual]; const escalas=m?m.escalas:[];
-    document.getElementById('filtro-escalas-lista').innerHTML=escalas.length
-        ?escalas.map((e,i)=>`<div class="filtro-opcao"><input type="checkbox" id="fesc_${i}" value="${i}"><label for="fesc_${i}">Escala ${i+1}: ${fmtD(e.data)} ${e.in} → ${fmtD(e.dataF)} ${e.out}</label></div>`).join('')
-        :'<p style="color:#90a4ae;font-size:0.85rem;padding:8px">Nenhuma escala cadastrada.</p>';
+    var m = allData.meses[mesAtual];
+    var escalas = m ? m.escalas : [];
+    document.getElementById('filtro-escalas-lista').innerHTML = escalas.length
+        ? escalas.map(function(e, i) {
+            return '<div class="filtro-opcao"><input type="checkbox" id="fesc_' + i + '" value="' + i + '">'
+                 + '<label for="fesc_' + i + '">Escala ' + (i+1) + ': ' + fmtD(e.data) + ' ' + e.in + ' - ' + fmtD(e.dataF) + ' ' + e.out + '</label></div>';
+          }).join('')
+        : '<p style="color:#90a4ae;font-size:0.85rem;padding:8px">Nenhuma escala cadastrada.</p>';
     abrirModal('modal-filtro-rel');
 }
 function alternarFiltroTipo(modo) {
-    _filtroModo=modo;
-    document.getElementById('filtro-mes-area').style.display=modo==='mes'?'block':'none';
-    document.getElementById('filtro-esc-area').style.display=modo==='escala'?'block':'none';
-    document.getElementById('btn-filtro-mes').classList.toggle('ativo',modo==='mes');
-    document.getElementById('btn-filtro-esc').classList.toggle('ativo',modo==='escala');
+    _filtroModo = modo;
+    document.getElementById('filtro-mes-area').style.display  = modo === 'mes'    ? 'block' : 'none';
+    document.getElementById('filtro-esc-area').style.display  = modo === 'escala' ? 'block' : 'none';
+    document.getElementById('btn-filtro-mes').classList.toggle('ativo', modo === 'mes');
+    document.getElementById('btn-filtro-esc').classList.toggle('ativo', modo === 'escala');
 }
 function gerarComFiltro() {
     fecharModal('modal-filtro-rel');
-    const dataEntrega=document.getElementById('filtro-data-entrega').value;
-    if (_filtroModo==='mes') { gerarRelatorioMeses([mesAtual],_filtroTipo,dataEntrega); return; }
-    const checks=[...document.querySelectorAll('#filtro-escalas-lista input[type=checkbox]:checked')];
-    if (!checks.length){alert('Selecione ao menos uma escala.');return;}
-    gerarRelatorioMultiEscala(mesAtual,checks.map(c=>parseInt(c.value)),_filtroTipo,dataEntrega);
+    var dataEntrega = document.getElementById('filtro-data-entrega').value;
+    if (_filtroModo === 'mes') { gerarRelatorioMeses([mesAtual], _filtroTipo, dataEntrega); return; }
+    var checks = Array.from(document.querySelectorAll('#filtro-escalas-lista input[type=checkbox]:checked'));
+    if (!checks.length) { alert('Selecione ao menos uma escala.'); return; }
+    gerarRelatorioMultiEscala(mesAtual, checks.map(function(c){ return parseInt(c.value); }), _filtroTipo, dataEntrega);
 }
 
 function buildLinhas(mesesIds) {
-    let linhas=[],tKM=0,tTrab=0,tEsc=0,periodo=[];
-    mesesIds.forEach(mid=>{
-        const m=allData.meses[mid]; if(!m)return;
-        if (mesesIds.length>1) linhas.push({tipo:'mes',label:m.label});
-        m.corridas.forEach(co=>{
-            linhas.push({tipo:'corrida',co}); tKM+=parseFloat(co.km)||0;
-            const[h,mm]=(co.tempo||'0:0').split(':').map(Number); tTrab+=h*60+mm;
-            const dtIn=new Date(co.data+'T'+co.in);
-            let dataFim=co.data;
-            if (co.out&&co.in&&co.out<=co.in){const d=new Date(co.data);d.setDate(d.getDate()+1);dataFim=d.toISOString().slice(0,10);}
-            const dtOut=co.out?new Date(dataFim+'T'+co.out):null;
-            m.exames.filter(ex=>{const dtEx=new Date(ex.data+'T'+ex.hora);return dtOut?(dtEx>=dtIn&&dtEx<=dtOut):(ex.data===co.data&&ex.hora>=co.in);}).forEach(ex=>linhas.push({tipo:'exame',ex}));
+    var linhas=[],tKM=0,tTrab=0,tEsc=0,periodo=[];
+    mesesIds.forEach(function(mid) {
+        var m = allData.meses[mid]; if (!m) return;
+        if (mesesIds.length > 1) linhas.push({ tipo:'mes', label:m.label });
+        m.corridas.forEach(function(co) {
+            linhas.push({ tipo:'corrida', co:co });
+            tKM += parseFloat(co.km)||0;
+            var p = (co.tempo||'0:0').split(':').map(Number); tTrab += p[0]*60+p[1];
+            var dtIn = new Date(co.data+'T'+co.in);
+            var dataFim = co.data;
+            if (co.out && co.in && co.out <= co.in) { var dd=new Date(co.data); dd.setDate(dd.getDate()+1); dataFim=dd.toISOString().slice(0,10); }
+            var dtOut = co.out ? new Date(dataFim+'T'+co.out) : null;
+            m.exames.filter(function(ex) {
+                var dtEx = new Date(ex.data+'T'+ex.hora);
+                return dtOut ? (dtEx>=dtIn && dtEx<=dtOut) : (ex.data===co.data && ex.hora>=co.in);
+            }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
         });
-        m.escalas.forEach(e=>{tEsc+=calcDiffFull(e.data,e.in,e.dataF,e.out);});
-        periodo.push(...m.escalas.map(e=>fmtD(e.data)+' a '+fmtD(e.dataF)));
+        m.escalas.forEach(function(e){ tEsc += calcDiffFull(e.data,e.in,e.dataF,e.out); });
+        m.escalas.forEach(function(e){ periodo.push(fmtD(e.data)+' a '+fmtD(e.dataF)); });
     });
-    return{linhas,tKM,tTrab,tEsc,periodo:[...new Set(periodo)].join(' | ')};
+    var periodoUniq = periodo.filter(function(v,i,a){ return a.indexOf(v)===i; }).join(' | ');
+    return { linhas:linhas, tKM:tKM, tTrab:tTrab, tEsc:tEsc, periodo:periodoUniq };
 }
-function buildLinhasEscala(mid,escIdx) {
-    const m=allData.meses[mid]; if(!m)return{linhas:[],tKM:0,tTrab:0,tEsc:0,periodo:''};
-    const esc=m.escalas[escIdx]; if(!esc)return{linhas:[],tKM:0,tTrab:0,tEsc:0,periodo:''};
-    const dtEscIn=new Date(esc.data+'T'+esc.in),dtEscOut=new Date(esc.dataF+'T'+esc.out);
-    const tEsc=calcDiffFull(esc.data,esc.in,esc.dataF,esc.out);
-    const periodo=fmtD(esc.data)+' '+esc.in+' → '+fmtD(esc.dataF)+' '+esc.out;
-    let linhas=[],tKM=0,tTrab=0;
-    m.corridas.filter(co=>{const dt=new Date(co.data+'T'+co.in);return dt>=dtEscIn&&dt<=dtEscOut;}).forEach(co=>{
-        linhas.push({tipo:'corrida',co}); tKM+=parseFloat(co.km)||0;
-        const[h,mm]=(co.tempo||'0:0').split(':').map(Number); tTrab+=h*60+mm;
-        const dtIn=new Date(co.data+'T'+co.in);
-        let dataFim=co.data;
-        if (co.out&&co.in&&co.out<=co.in){const d=new Date(co.data);d.setDate(d.getDate()+1);dataFim=d.toISOString().slice(0,10);}
-        const dtOut=co.out?new Date(dataFim+'T'+co.out):null;
-        m.exames.filter(ex=>{const dtEx=new Date(ex.data+'T'+ex.hora);return dtOut?(dtEx>=dtIn&&dtEx<=dtOut):(ex.data===co.data&&ex.hora>=co.in);}).forEach(ex=>linhas.push({tipo:'exame',ex}));
+function buildLinhasEscala(mid, escIdx) {
+    var m = allData.meses[mid]; if (!m) return { linhas:[],tKM:0,tTrab:0,tEsc:0,periodo:'' };
+    var esc = m.escalas[escIdx]; if (!esc) return { linhas:[],tKM:0,tTrab:0,tEsc:0,periodo:'' };
+    var dtEscIn  = new Date(esc.data+'T'+esc.in);
+    var dtEscOut = new Date(esc.dataF+'T'+esc.out);
+    var tEsc = calcDiffFull(esc.data,esc.in,esc.dataF,esc.out);
+    var periodo = fmtD(esc.data)+' '+esc.in+' - '+fmtD(esc.dataF)+' '+esc.out;
+    var linhas=[],tKM=0,tTrab=0;
+    m.corridas.filter(function(co){ var dt=new Date(co.data+'T'+co.in); return dt>=dtEscIn && dt<=dtEscOut; })
+    .forEach(function(co) {
+        linhas.push({ tipo:'corrida', co:co });
+        tKM += parseFloat(co.km)||0;
+        var p = (co.tempo||'0:0').split(':').map(Number); tTrab += p[0]*60+p[1];
+        var dtIn = new Date(co.data+'T'+co.in);
+        var dataFim = co.data;
+        if (co.out && co.in && co.out <= co.in) { var dd=new Date(co.data); dd.setDate(dd.getDate()+1); dataFim=dd.toISOString().slice(0,10); }
+        var dtOut = co.out ? new Date(dataFim+'T'+co.out) : null;
+        m.exames.filter(function(ex) {
+            var dtEx=new Date(ex.data+'T'+ex.hora);
+            return dtOut ? (dtEx>=dtIn && dtEx<=dtOut) : (ex.data===co.data && ex.hora>=co.in);
+        }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
     });
-    return{linhas,tKM,tTrab,tEsc,periodo};
+    return { linhas:linhas, tKM:tKM, tTrab:tTrab, tEsc:tEsc, periodo:periodo };
 }
-function gerarRelatorioMultiEscala(mid,idxs,tipo,dataEntrega) {
-    const m=allData.meses[mid]; if(!m)return;
-    let linhas=[],tKM=0,tTrab=0,tEsc=0,periodos=[];
-    idxs.forEach(idx=>{
-        const r=buildLinhasEscala(mid,idx);
-        if (idxs.length>1) linhas.push({tipo:'mes',label:'Escala '+(idx+1)+': '+r.periodo});
-        linhas.push(...r.linhas); tKM+=r.tKM; tTrab+=r.tTrab; tEsc+=r.tEsc; periodos.push(r.periodo);
+function gerarRelatorioMultiEscala(mid, idxs, tipo, dataEntrega) {
+    var m = allData.meses[mid]; if (!m) return;
+    var linhas=[],tKM=0,tTrab=0,tEsc=0,periodos=[];
+    idxs.forEach(function(idx) {
+        var r = buildLinhasEscala(mid, idx);
+        if (idxs.length > 1) linhas.push({ tipo:'mes', label:'Escala '+(idx+1)+': '+r.periodo });
+        linhas = linhas.concat(r.linhas);
+        tKM+=r.tKM; tTrab+=r.tTrab; tEsc+=r.tEsc; periodos.push(r.periodo);
     });
-    const titulo=m.label+(idxs.length===1?' — Escala '+(idxs[0]+1):' — '+idxs.length+' Escalas');
-    _renderRelatorio(linhas,titulo,periodos.join(' | '),'SOBREAVISO: '+fmtMin(tEsc)+' | TRABALHADO: '+fmtMin(tTrab)+' | KM: '+tKM.toFixed(1),tipo,dataEntrega||'');
+    var titulo = m.label + (idxs.length===1 ? ' - Escala '+(idxs[0]+1) : ' - '+idxs.length+' Escalas');
+    _renderRelatorio(linhas, titulo, periodos.join(' | '),
+        'SOBREAVISO: '+fmtMin(tEsc)+' | TRABALHADO: '+fmtMin(tTrab)+' | KM: '+tKM.toFixed(1), tipo, dataEntrega||'');
 }
-function gerarRelatorioMeses(mesesIds,tipo,dataEntrega) {
-    const{linhas,tKM,tTrab,tEsc,periodo}=buildLinhas(mesesIds);
-    const titulo=mesesIds.map(id=>allData.meses[id]?.label||'').join(', ');
-    _renderRelatorio(linhas,titulo,periodo,'TOTAL SOBREAVISO: '+fmtMin(tEsc)+' | TRABALHADO: '+fmtMin(tTrab)+' | KM: '+tKM.toFixed(1),tipo,dataEntrega||'');
+function gerarRelatorioMeses(mesesIds, tipo, dataEntrega) {
+    var r = buildLinhas(mesesIds);
+    var titulo = mesesIds.map(function(id){ return (allData.meses[id]&&allData.meses[id].label)||''; }).join(', ');
+    _renderRelatorio(r.linhas, titulo, r.periodo,
+        'TOTAL SOBREAVISO: '+fmtMin(r.tEsc)+' | TRABALHADO: '+fmtMin(r.tTrab)+' | KM: '+r.tKM.toFixed(1), tipo, dataEntrega||'');
 }
-function _renderRelatorio(linhas,titulo,periodo,resumoTxt,tipo,dataEntrega) {
-    const entStr=dataEntrega?'<p><b>DATA DE ENTREGA:</b> '+fmtD(dataEntrega)+'</p>':'';
-    if (tipo==='print') {
-        const rows=linhas.map(l=>{
-            if(l.tipo==='mes')return '<tr style="background:#1565c0;color:white"><td colspan="5" style="padding:6px;font-weight:bold">📅 '+l.label+'</td></tr>';
-            if(l.tipo==='corrida')return '<tr style="background:#ddd;font-weight:bold"><td>'+fmtD(l.co.data)+'</td><td>'+l.co.in+'-'+(l.co.out||'?')+'</td><td>'+l.co.tempo+'</td><td>'+l.co.km+'</td><td>SETOR: '+(l.co.setor||'---')+'</td></tr>';
-            return '<tr><td colspan="4"></td><td style="font-size:8pt;font-style:italic">• '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')</td></tr>';
-        }).join('');
-        const html='<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatório</title>'+
-            '<style>body{font-family:Arial;padding:20px;font-size:9pt}.h{text-align:center;border:2px solid black;padding:10px;margin-bottom:15px}'+
-            'table{width:100%;border-collapse:collapse}th,td{border:1px solid black;padding:4px;font-size:8pt}th{background:#1565c0;color:white}'+
-            '.res{border:2px solid black;padding:8px;font-weight:bold;margin-top:10px}@media print{@page{margin:.5cm;size:A4}}</style></head><body>'+
-            '<div class="h"><h2 style="margin:0">RELATÓRIO MENSAL DE SOBREAVISO</h2>'+
-            '<p><b>PROFISSIONAL:</b> '+allData.user.toUpperCase()+'</p>'+
-            '<p><b>REFERÊNCIA:</b> '+titulo+'</p><p><b>ESCALAS:</b> '+periodo+'</p>'+entStr+'</div>'+
-            '<table><thead><tr><th>DATA</th><th>ENTRADA/SAÍDA</th><th>TEMPO</th><th>KM</th><th>SETOR / EXAMES</th></tr></thead>'+
-            '<tbody>'+rows+'</tbody></table><div class="res">'+resumoTxt+'</div>'+
-            '<script>window.onload=()=>window.print();<\/script></body></html>';
-        const w=window.open('','_blank'); w.document.write(html); w.document.close();
-    } else {
-        const{jsPDF}=window.jspdf;
-        const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-        doc.setFontSize(13); doc.setFont(undefined,'bold');
-        doc.text('RELATÓRIO MENSAL DE SOBREAVISO',105,14,{align:'center'});
-        doc.setFontSize(9); doc.setFont(undefined,'normal');
-        doc.text('PROFISSIONAL: '+allData.user.toUpperCase(),105,21,{align:'center'});
-        doc.text('REFERÊNCIA: '+titulo,105,26,{align:'center'});
-        let sy=31;
-        if(periodo){doc.text('ESCALAS: '+periodo,105,sy,{align:'center'});sy+=5;}
-        if(dataEntrega){doc.setFont(undefined,'bold');doc.text('DATA DE ENTREGA: '+fmtD(dataEntrega),105,sy,{align:'center'});doc.setFont(undefined,'normal');sy+=5;}
-        const body=linhas.map(l=>{
-            if(l.tipo==='mes')return[{content:'📅 '+l.label,colSpan:5,styles:{fillColor:[21,101,192],textColor:255,fontStyle:'bold'}}];
-            if(l.tipo==='corrida')return[fmtD(l.co.data),l.co.in+'-'+(l.co.out||'?'),l.co.tempo,l.co.km||'','SETOR: '+(l.co.setor||'---')];
-            return['','','','','• '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')'];
-        });
-        doc.autoTable({startY:sy,head:[['DATA','ENTRADA/SAÍDA','TEMPO','KM','SETOR / EXAMES']],body,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[21,101,192]},
-            didParseCell:d=>{if(d.section==='body'&&d.row.raw[1]&&!Array.isArray(d.row.raw[0])&&String(d.row.raw[1]).includes('-')&&d.row.raw[1]!==''){d.cell.styles.fillColor=[221,221,221];d.cell.styles.fontStyle='bold';}}
-        });
-        const y=doc.lastAutoTable.finalY+5;
-        doc.setFontSize(8); doc.setFont(undefined,'bold');
-        doc.setFillColor(240,244,248); doc.rect(14,y-3,182,9,'F'); doc.rect(14,y-3,182,9);
-        doc.text(resumoTxt,16,y+2);
-        doc.save('relatorio_'+titulo.replace(/\s+/g,'_')+'.pdf');
+
+/* ── EXIBIR RELATORIO EM MODAL FULLSCREEN ── */
+function _exibirRelatorioModal(htmlContent) {
+    var overlay = document.getElementById('modal-relatorio-view');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'modal-relatorio-view';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;background:white;display:flex;flex-direction:column;';
+        overlay.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#1565c0;color:white;flex-shrink:0">'
+          + '<span style="font-weight:700;font-size:0.9rem">Relatorio</span>'
+          + '<div style="display:flex;gap:8px">'
+          + '<button id="btn-rel-imprimir" style="background:white;color:#1565c0;border:none;padding:7px 14px;border-radius:7px;font-weight:700;cursor:pointer;font-size:0.8rem">Imprimir</button>'
+          + '<button onclick="document.getElementById(\'modal-relatorio-view\').style.display=\'none\'" '
+          + 'style="background:rgba(255,255,255,0.25);color:white;border:none;padding:7px 14px;border-radius:7px;font-weight:700;cursor:pointer;font-size:0.8rem">Fechar</button>'
+          + '</div></div>'
+          + '<iframe id="rel-iframe" style="flex:1;border:none;width:100%;height:100%"></iframe>';
+        document.body.appendChild(overlay);
     }
+    overlay.style.display = 'flex';
+    var iframe = document.getElementById('rel-iframe');
+    iframe.srcdoc = htmlContent;
+    document.getElementById('btn-rel-imprimir').onclick = function() {
+        try { iframe.contentWindow.print(); } catch(ex) { alert('Use o menu do navegador para imprimir.'); }
+    };
+}
+
+function _renderRelatorio(linhas, titulo, periodo, resumoTxt, tipo, dataEntrega) {
+    var entStr = dataEntrega ? '<p><b>DATA DE ENTREGA:</b> ' + fmtD(dataEntrega) + '</p>' : '';
+
+    /* PDF - download direto via blob */
+    if (tipo !== 'print') {
+        try {
+            var jsPDF = window.jspdf.jsPDF;
+            var doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+            doc.setFontSize(13); doc.setFont(undefined,'bold');
+            doc.text('RELATORIO MENSAL DE SOBREAVISO', 105, 14, { align:'center' });
+            doc.setFontSize(9); doc.setFont(undefined,'normal');
+            doc.text('PROFISSIONAL: ' + (allData.user||'').toUpperCase(), 105, 21, { align:'center' });
+            doc.text('REFERENCIA: ' + titulo, 105, 26, { align:'center' });
+            var sy = 31;
+            if (periodo) { doc.text('ESCALAS: '+periodo, 105, sy, { align:'center' }); sy+=5; }
+            if (dataEntrega) { doc.setFont(undefined,'bold'); doc.text('ENTREGA: '+fmtD(dataEntrega),105,sy,{align:'center'}); doc.setFont(undefined,'normal'); sy+=5; }
+            var body = linhas.map(function(l) {
+                if (l.tipo==='mes')     return [{ content:l.label, colSpan:5, styles:{fillColor:[21,101,192],textColor:255,fontStyle:'bold'} }];
+                if (l.tipo==='corrida') return [fmtD(l.co.data), l.co.in+'-'+(l.co.out||'?'), l.co.tempo, l.co.km||'', 'SETOR: '+(l.co.setor||'---')];
+                return ['','','','','* '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')'];
+            });
+            doc.autoTable({
+                startY: sy,
+                head: [['DATA','ENTRADA/SAIDA','TEMPO','KM','SETOR / EXAMES']],
+                body: body,
+                styles: { fontSize:7, cellPadding:2 },
+                headStyles: { fillColor:[21,101,192] },
+                didParseCell: function(d) {
+                    if (d.section==='body' && d.row.raw[1] && !Array.isArray(d.row.raw[0])
+                        && String(d.row.raw[1]).indexOf('-')>=0 && d.row.raw[1]!=='') {
+                        d.cell.styles.fillColor = [221,221,221];
+                        d.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            });
+            var y = doc.lastAutoTable.finalY + 5;
+            doc.setFontSize(8); doc.setFont(undefined,'bold');
+            doc.setFillColor(240,244,248); doc.rect(14,y-3,182,9,'F'); doc.rect(14,y-3,182,9);
+            doc.text(resumoTxt, 16, y+2);
+            var pdfBlob = doc.output('blob');
+            var pdfUrl  = URL.createObjectURL(pdfBlob);
+            var link    = document.createElement('a');
+            link.href     = pdfUrl;
+            link.download = 'relatorio_' + titulo.replace(/\s+/g,'_').replace(/[^\w\-]/g,'') + '.pdf';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(function(){ document.body.removeChild(link); URL.revokeObjectURL(pdfUrl); }, 3000);
+        } catch(ex) { alert('Erro ao gerar PDF: ' + ex.message); }
+        return;
+    }
+
+    /* Relatorio HTML - exibir em modal */
+    var rows = linhas.map(function(l) {
+        if (l.tipo==='mes')     return '<tr style="background:#1565c0;color:white"><td colspan="5" style="padding:6px;font-weight:bold">'+l.label+'</td></tr>';
+        if (l.tipo==='corrida') return '<tr style="background:#ddd;font-weight:bold"><td>'+fmtD(l.co.data)+'</td><td>'+l.co.in+'-'+(l.co.out||'?')+'</td><td>'+l.co.tempo+'</td><td>'+l.co.km+'</td><td>SETOR: '+(l.co.setor||'---')+'</td></tr>';
+        return '<tr><td colspan="4"></td><td style="font-size:8pt;font-style:italic">* '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')</td></tr>';
+    }).join('');
+    var html = '<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatorio</title>'
+        + '<style>body{font-family:Arial;padding:20px;font-size:9pt}'
+        + '.h{text-align:center;border:2px solid black;padding:10px;margin-bottom:15px}'
+        + 'table{width:100%;border-collapse:collapse}th,td{border:1px solid black;padding:4px;font-size:8pt}'
+        + 'th{background:#1565c0;color:white}.res{border:2px solid black;padding:8px;font-weight:bold;margin-top:10px}'
+        + '@media print{@page{margin:.5cm;size:A4}}</style></head><body>'
+        + '<div class="h"><h2 style="margin:0">RELATORIO MENSAL DE SOBREAVISO</h2>'
+        + '<p><b>PROFISSIONAL:</b> '+(allData.user||'').toUpperCase()+'</p>'
+        + '<p><b>REFERENCIA:</b> '+titulo+'</p>'
+        + (periodo ? '<p><b>ESCALAS:</b> '+periodo+'</p>' : '')
+        + entStr + '</div>'
+        + '<table><thead><tr><th>DATA</th><th>ENTRADA/SAIDA</th><th>TEMPO</th><th>KM</th><th>SETOR / EXAMES</th></tr></thead>'
+        + '<tbody>' + rows + '</tbody></table>'
+        + '<div class="res">' + resumoTxt + '</div>'
+        + '</body></html>';
+    _exibirRelatorioModal(html);
 }
 
 /* ── FICHAS ── */
 function imprimirTodasFichas() {
-    const d=dbMes();
-    const fichas=d.corridas.map(co=>
-        '<div class="ficha"><div class="fh">FICHA DE CHAMADO / REQUISIÇÃO DE SOBREAVISO</div>'+
-        '<div style="font-size:11pt;line-height:1.8;margin-top:20px">'+
-        '<b>DATA:</b> '+fmtD(co.data)+'<br><b>PROFISSIONAL:</b> '+allData.user.toUpperCase()+'<br>'+
-        '<b>SETOR DO CHAMADO:</b> '+(co.setor||'---')+'<br>'+
-        '<b>ENTRADA:</b> '+co.in+' | <b>SAÍDA:</b> '+(co.out||'em aberto')+'<br>'+
-        '<b>TEMPO TOTAL:</b> '+co.tempo+' | <b>KM:</b> '+co.km+'</div>'+
-        '<div style="position:absolute;bottom:30px;width:90%;display:flex;justify-content:space-between">'+
-        '<div style="border-top:1px solid black;width:45%;text-align:center;font-size:8pt">Assinatura Hospital</div>'+
-        '<div style="border-top:1px solid black;width:45%;text-align:center;font-size:8pt">Assinatura Técnico</div>'+
-        '</div></div>'
-    ).join('');
-    const html='<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Fichas</title>'+
-        '<style>body{font-family:Arial;padding:10px;margin:0}.ficha{width:100%;height:9.2cm;border:1px dashed black;padding:15px;margin-bottom:.2cm;page-break-inside:avoid;position:relative}'+
-        '.fh{text-align:center;font-weight:bold;border-bottom:1px solid black;padding-bottom:5px;margin-bottom:10px;text-transform:uppercase}'+
-        '@media print{@page{margin:.5cm;size:A4}}</style></head><body>'+
-        fichas+'<script>window.onload=()=>window.print();<\/script></body></html>';
-    const w=window.open('','_blank'); w.document.write(html); w.document.close();
+    var d = dbMes();
+    if (!d.corridas.length) { alert('Nenhuma corrida registrada neste mes.'); return; }
+    var fichas = d.corridas.map(function(co) {
+        return '<div class="ficha"><div class="fh">FICHA DE CHAMADO / REQUISICAO DE SOBREAVISO</div>'
+             + '<div style="font-size:11pt;line-height:1.8;margin-top:20px">'
+             + '<b>DATA:</b> '+fmtD(co.data)+'<br><b>PROFISSIONAL:</b> '+(allData.user||'').toUpperCase()+'<br>'
+             + '<b>SETOR DO CHAMADO:</b> '+(co.setor||'---')+'<br>'
+             + '<b>ENTRADA:</b> '+co.in+' | <b>SAIDA:</b> '+(co.out||'em aberto')+'<br>'
+             + '<b>TEMPO TOTAL:</b> '+co.tempo+' | <b>KM:</b> '+co.km+'</div>'
+             + '<div style="position:absolute;bottom:30px;width:90%;display:flex;justify-content:space-between">'
+             + '<div style="border-top:1px solid black;width:45%;text-align:center;font-size:8pt">Assinatura Hospital</div>'
+             + '<div style="border-top:1px solid black;width:45%;text-align:center;font-size:8pt">Assinatura Tecnico</div>'
+             + '</div></div>';
+    }).join('');
+    var html = '<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Fichas</title>'
+        + '<style>body{font-family:Arial;padding:10px;margin:0}'
+        + '.ficha{width:100%;height:9.2cm;border:1px dashed black;padding:15px;margin-bottom:.2cm;page-break-inside:avoid;position:relative}'
+        + '.fh{text-align:center;font-weight:bold;border-bottom:1px solid black;padding-bottom:5px;margin-bottom:10px;text-transform:uppercase}'
+        + '@media print{@page{margin:.5cm;size:A4}}</style></head><body>'
+        + fichas + '</body></html>';
+    _exibirRelatorioModal(html);
 }
 
 /* ── GOOGLE DRIVE ── */
-let gToken=null, gFolderId=null, gFileId=null, gTimer=null;
-const GF='SobreavisoRadiologia', GN='backup_radiologia_v2.json';
+var gToken=null, gFolderId=null, gFileId=null, gTimer=null;
+var GF='SobreavisoRadiologia', GN='backup_radiologia_v2.json';
 
-function setStatus(estado,msg){const el=document.getElementById('backup-status');el.className=estado;el.textContent=msg;}
-function driveDebounce(){if(!gToken)return;clearTimeout(gTimer);gTimer=setTimeout(sincronizarDrive,2000);}
-
+function setStatus(estado, msg) {
+    var el = document.getElementById('backup-status');
+    el.className = estado; el.textContent = msg;
+}
+function driveDebounce() {
+    if (!gToken) return;
+    clearTimeout(gTimer); gTimer = setTimeout(sincronizarDrive, 2000);
+}
 function conectarGDrive() {
-    if (gToken){sincronizarDrive();return;}
-    document.getElementById('drive-email-salvo').value=localStorage.getItem('driveEmail')||'';
+    if (gToken) { sincronizarDrive(); return; }
+    document.getElementById('drive-email-salvo').value = localStorage.getItem('driveEmail')||'';
     abrirModal('modal-config-drive');
 }
 function salvarEmailDrive() {
-    const email=document.getElementById('drive-email-salvo').value.trim();
-    if (email) localStorage.setItem('driveEmail',email);
+    var email = document.getElementById('drive-email-salvo').value.trim();
+    if (email) localStorage.setItem('driveEmail', email);
     fecharModal('modal-config-drive'); _iniciarConexaoDrive();
 }
 function _iniciarConexaoDrive() {
     try {
         google.accounts.oauth2.initTokenClient({
-            client_id:'622210262026-ns1eiu5l8lshm0mejb54p4e283c6vafh.apps.googleusercontent.com',
-            scope:'https://www.googleapis.com/auth/drive.file',
-            hint:localStorage.getItem('driveEmail')||undefined,
-            callback:async resp=>{
-                if(resp.error){setStatus('error','❌ Erro');return;}
-                gToken=resp.access_token; setStatus('saving','🔄 Conectando...');
-                await garantirPasta(); await buscarArquivo();
-                if(gFileId){await carregarDoDrive();}else{await sincronizarDrive();}
+            client_id: '622210262026-ns1eiu5l8lshm0mejb54p4e283c6vafh.apps.googleusercontent.com',
+            scope: 'https://www.googleapis.com/auth/drive.file',
+            hint: localStorage.getItem('driveEmail') || undefined,
+            callback: function(resp) {
+                if (resp.error) { setStatus('error','Erro'); return; }
+                gToken = resp.access_token; setStatus('saving','Conectando...');
+                garantirPasta().then(function(){ return buscarArquivo(); }).then(function() {
+                    if (gFileId) { carregarDoDrive(); } else { sincronizarDrive(); }
+                });
             }
         }).requestAccessToken();
-    } catch(e){setStatus('error','❌ '+e.message);}
+    } catch(ex) { setStatus('error','Erro: '+ex.message); }
 }
-async function carregarDoDrive() {
-    try {
-        setStatus('saving','🔄 Carregando...');
-        const r=await fetch('https://www.googleapis.com/drive/v3/files/'+gFileId+'?alt=media',{headers:{Authorization:'Bearer '+gToken}});
-        if(!r.ok)throw new Error(r.status);
-        const dd=await r.json();
-        const tL=Object.values(allData.meses).reduce((s,m)=>s+m.exames.length+m.corridas.length,0);
-        const tD=Object.values(dd.meses||{}).reduce((s,m)=>s+m.exames.length+m.corridas.length,0);
-        if(tD>tL&&confirm('Drive tem '+tD+' registros, local tem '+tL+'.\n\nCarregar dados do Drive? (recomendado)')){
-            allData=dd; if(!allData.usuarios)allData.usuarios=[]; salvarLS();
-            popularSelectMes(); const ids=Object.keys(allData.meses); mesAtual=ids[ids.length-1];
-            document.getElementById('sel-mes').value=mesAtual; document.getElementById('userName').value=allData.user||'';
-            document.getElementById('lista-escalas').innerHTML=''; carregarMes();
-            setStatus('ok','✅ Drive carregado'); return;
+function _tentarReconectarDrive() {
+    var email = localStorage.getItem('driveEmail');
+    if (!email) return;
+    var tentarConectar = function() {
+        if (typeof google === 'undefined' || !google.accounts) { setTimeout(tentarConectar, 800); return; }
+        try {
+            google.accounts.oauth2.initTokenClient({
+                client_id: '622210262026-ns1eiu5l8lshm0mejb54p4e283c6vafh.apps.googleusercontent.com',
+                scope: 'https://www.googleapis.com/auth/drive.file',
+                hint: email,
+                prompt: '',
+                callback: function(resp) {
+                    if (resp.error) return;
+                    gToken = resp.access_token;
+                    setStatus('saving','Sincronizando...');
+                    garantirPasta().then(function(){ return buscarArquivo(); }).then(function() {
+                        if (gFileId) { carregarDoDrive(); } else { sincronizarDrive(); }
+                    });
+                }
+            }).requestAccessToken();
+        } catch(ex) { /* silencioso */ }
+    };
+    setTimeout(tentarConectar, 1200);
+}
+function carregarDoDrive() {
+    setStatus('saving','Carregando...');
+    fetch('https://www.googleapis.com/drive/v3/files/'+gFileId+'?alt=media', { headers:{ Authorization:'Bearer '+gToken } })
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(dd) {
+        var tL = Object.values(allData.meses).reduce(function(s,m){ return s+m.exames.length+m.corridas.length; },0);
+        var tD = Object.values(dd.meses||{}).reduce(function(s,m){ return s+m.exames.length+m.corridas.length; },0);
+        if (tD > tL && confirm('Drive tem '+tD+' registros, local tem '+tL+'. Carregar dados do Drive?')) {
+            allData = dd; if (!allData.usuarios) allData.usuarios = []; salvarLS();
+            popularSelectMes();
+            var ids = Object.keys(allData.meses); mesAtual = ids[ids.length-1];
+            document.getElementById('sel-mes').value = mesAtual;
+            document.getElementById('userName').value = allData.user||'';
+            document.getElementById('lista-escalas').innerHTML = ''; carregarMes();
+            setStatus('ok','Drive carregado'); return;
         }
-        await sincronizarDrive();
-    } catch(e){setStatus('error','❌ Falha ao carregar');}
+        sincronizarDrive();
+    })
+    .catch(function(){ setStatus('error','Falha ao carregar'); });
 }
-async function garantirPasta() {
-    const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name='"+GF+"' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id)",{headers:{Authorization:'Bearer '+gToken}});
-    const d=await r.json();
-    if(d.files?.length){gFolderId=d.files[0].id;return;}
-    const cr=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},body:JSON.stringify({name:GF,mimeType:'application/vnd.google-apps.folder'})});
-    gFolderId=(await cr.json()).id;
+function garantirPasta() {
+    return fetch("https://www.googleapis.com/drive/v3/files?q=name='"+GF+"' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id)",
+        { headers:{ Authorization:'Bearer '+gToken } })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+        if (d.files && d.files.length) { gFolderId = d.files[0].id; return; }
+        return fetch('https://www.googleapis.com/drive/v3/files', {
+            method:'POST', headers:{ Authorization:'Bearer '+gToken, 'Content-Type':'application/json' },
+            body: JSON.stringify({ name:GF, mimeType:'application/vnd.google-apps.folder' })
+        }).then(function(r){ return r.json(); }).then(function(d){ gFolderId = d.id; });
+    });
 }
-async function buscarArquivo() {
-    const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name='"+GN+"' and '"+gFolderId+"' in parents and trashed=false&fields=files(id)",{headers:{Authorization:'Bearer '+gToken}});
-    const d=await r.json(); if(d.files?.length)gFileId=d.files[0].id;
+function buscarArquivo() {
+    return fetch("https://www.googleapis.com/drive/v3/files?q=name='"+GN+"' and '"+gFolderId+"' in parents and trashed=false&fields=files(id)",
+        { headers:{ Authorization:'Bearer '+gToken } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (d.files && d.files.length) gFileId = d.files[0].id; });
 }
-async function sincronizarDrive() {
-    if(!gToken)return;
-    const tot=Object.values(allData.meses).reduce((s,m)=>s+m.exames.length+m.corridas.length,0);
-    if(tot===0&&gFileId){setStatus('offline','⚠️ Sem dados');return;}
-    setStatus('saving','🔄 Salvando...');
-    try {
-        const content=JSON.stringify(allData);
-        if(gFileId){
-            const r=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+gFileId+'?uploadType=media',{method:'PATCH',headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},body:content});
-            if(!r.ok)throw new Error(r.status);
-        } else {
-            const form=new FormData();
-            form.append('metadata',new Blob([JSON.stringify({name:GN,parents:[gFolderId]})],{type:'application/json'}));
-            form.append('file',new Blob([content],{type:'application/json'}));
-            const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+gToken},body:form});
-            if(!r.ok)throw new Error(r.status); gFileId=(await r.json()).id;
-        }
-        setStatus('ok','☁️ '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
-    } catch(e){setStatus('error','❌ Falha');}
+function sincronizarDrive() {
+    if (!gToken) return;
+    var tot = Object.values(allData.meses).reduce(function(s,m){ return s+m.exames.length+m.corridas.length; },0);
+    if (tot===0 && gFileId) { setStatus('offline','Sem dados'); return; }
+    setStatus('saving','Salvando...');
+    var content = JSON.stringify(allData);
+    var p;
+    if (gFileId) {
+        p = fetch('https://www.googleapis.com/upload/drive/v3/files/'+gFileId+'?uploadType=media', {
+            method:'PATCH', headers:{ Authorization:'Bearer '+gToken, 'Content-Type':'application/json' }, body:content
+        });
+    } else {
+        var form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify({ name:GN, parents:[gFolderId] })],{ type:'application/json' }));
+        form.append('file',     new Blob([content], { type:'application/json' }));
+        p = fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method:'POST', headers:{ Authorization:'Bearer '+gToken }, body:form
+        }).then(function(r){ return r.json(); }).then(function(d){ gFileId=d.id; return { ok:true }; });
+    }
+    p.then(function(r){ if(r && !r.ok && r.status) throw new Error(r.status); })
+    .then(function(){
+        var t = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        setStatus('ok','Drive '+t);
+    })
+    .catch(function(){ setStatus('error','Falha'); });
 }
-
-function restaurarDoDrive(){abrirModal('modal-rest-drive');}
-async function confirmarRestaurarDrive() {
+function restaurarDoDrive() { abrirModal('modal-rest-drive'); }
+function confirmarRestaurarDrive() {
     fecharModal('modal-rest-drive');
-    if(gToken){await _forcarCarregarDoDrive();return;}
-    setStatus('saving','🔄 Conectando...');
+    if (gToken) { _forcarCarregarDoDrive(); return; }
+    setStatus('saving','Conectando...');
     try {
         google.accounts.oauth2.initTokenClient({
             client_id:'622210262026-ns1eiu5l8lshm0mejb54p4e283c6vafh.apps.googleusercontent.com',
             scope:'https://www.googleapis.com/auth/drive.file',
-            hint:localStorage.getItem('driveEmail')||undefined,
-            callback:async resp=>{
-                if(resp.error){setStatus('error','❌ Erro');return;}
-                gToken=resp.access_token;
-                await garantirPasta(); await buscarArquivo(); await _forcarCarregarDoDrive();
+            hint: localStorage.getItem('driveEmail')||undefined,
+            callback: function(resp) {
+                if (resp.error) { setStatus('error','Erro'); return; }
+                gToken = resp.access_token;
+                garantirPasta().then(function(){ return buscarArquivo(); }).then(function(){ _forcarCarregarDoDrive(); });
             }
         }).requestAccessToken();
-    } catch(e){setStatus('error','❌ '+e.message);}
+    } catch(ex) { setStatus('error','Erro: '+ex.message); }
 }
-async function _forcarCarregarDoDrive() {
-    if(!gFileId){alert('Nenhum backup encontrado no Google Drive.');setStatus('offline','⚠️ Sem backup');return;}
-    try {
-        setStatus('saving','🔄 Restaurando...');
-        const r=await fetch('https://www.googleapis.com/drive/v3/files/'+gFileId+'?alt=media',{headers:{Authorization:'Bearer '+gToken}});
-        if(!r.ok)throw new Error(r.status);
-        const dd=await r.json();
-        allData=dd; if(!allData.usuarios)allData.usuarios=[]; salvarLS();
-        popularSelectMes(); const ids=Object.keys(allData.meses); mesAtual=ids[ids.length-1];
-        document.getElementById('sel-mes').value=mesAtual; document.getElementById('userName').value=allData.user||'';
-        document.getElementById('lista-escalas').innerHTML=''; carregarMes();
-        setStatus('ok','✅ Restaurado');
-    } catch(e){setStatus('error','❌ Falha');alert('Erro: '+e.message);}
+function _forcarCarregarDoDrive() {
+    if (!gFileId) { alert('Nenhum backup encontrado no Google Drive.'); setStatus('offline','Sem backup'); return; }
+    setStatus('saving','Restaurando...');
+    fetch('https://www.googleapis.com/drive/v3/files/'+gFileId+'?alt=media', { headers:{ Authorization:'Bearer '+gToken } })
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(dd) {
+        allData = dd; if (!allData.usuarios) allData.usuarios = []; salvarLS();
+        popularSelectMes();
+        var ids = Object.keys(allData.meses); mesAtual = ids[ids.length-1];
+        document.getElementById('sel-mes').value = mesAtual;
+        document.getElementById('userName').value = allData.user||'';
+        document.getElementById('lista-escalas').innerHTML = ''; carregarMes();
+        setStatus('ok','Restaurado');
+    })
+    .catch(function(ex){ setStatus('error','Falha'); alert('Erro: '+ex.message); });
 }
 
 /* ── BACKUP LOCAL ── */
 function fazerBackupLocal() {
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([JSON.stringify(allData)],{type:'application/json'}));
-    a.download='backup_sobreaviso_'+hoje()+'.json'; a.click();
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(allData)],{ type:'application/json' }));
+    a.download = 'backup_sobreaviso_' + hoje() + '.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); }, 2000);
 }
 function restaurarBackup(input) {
-    const reader=new FileReader();
-    reader.onload=e=>{
+    var reader = new FileReader();
+    reader.onload = function(e) {
         try {
-            const p=JSON.parse(e.target.result);
-            allData=p.meses?p:{user:p.user||'',meses:{['mes_'+Date.now()]:{label:'Importado',escalas:p.escalas||[],exames:p.exames||[],corridas:p.corridas||[]}},usuarios:[]};
-            if(!allData.usuarios)allData.usuarios=[]; salvarLS(); location.reload();
-        } catch(e){alert('Arquivo inválido.');}
+            var p = JSON.parse(e.target.result);
+            allData = p.meses ? p : { user:p.user||'', meses:{ ['mes_'+Date.now()]:{ label:'Importado', escalas:p.escalas||[], exames:p.exames||[], corridas:p.corridas||[] } }, usuarios:[] };
+            if (!allData.usuarios) allData.usuarios = [];
+            salvarLS(); location.reload();
+        } catch(ex) { alert('Arquivo invalido.'); }
     };
     reader.readAsText(input.files[0]);
 }
 
-function _tentarReconectarDrive() {
-    const email = localStorage.getItem('driveEmail');
-    if (!email) return;
-    // Aguardar o SDK do Google carregar
-    const tentarConectar = () => {
-        if (typeof google === 'undefined' || !google.accounts) {
-            setTimeout(tentarConectar, 800);
-            return;
-        }
-        try {
-            google.accounts.oauth2.initTokenClient({
-                client_id:'622210262026-ns1eiu5l8lshm0mejb54p4e283c6vafh.apps.googleusercontent.com',
-                scope:'https://www.googleapis.com/auth/drive.file',
-                hint: email,
-                prompt: '',  // sem tela de escolha de conta
-                callback: async resp => {
-                    if (resp.error) return; // falha silenciosa
-                    gToken = resp.access_token;
-                    setStatus('saving','🔄 Sincronizando...');
-                    await garantirPasta();
-                    await buscarArquivo();
-                    if (gFileId) {
-                        await carregarDoDrive();
-                    } else {
-                        await sincronizarDrive();
-                    }
-                }
-            }).requestAccessToken();
-        } catch(e) { /* falha silenciosa */ }
-    };
-    setTimeout(tentarConectar, 1200);
-}
-
 iniciarApp();
+
 </script>
 </body>
 </html>
