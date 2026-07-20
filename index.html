@@ -903,6 +903,7 @@ function buildLinhas(mesesIds) {
     mesesIds.forEach(function(mid) {
         var m = allData.meses[mid]; if (!m) return;
         if (mesesIds.length > 1) linhas.push({ tipo:'mes', label:m.label });
+        var usados = {};
         m.corridas.forEach(function(co) {
             linhas.push({ tipo:'corrida', co:co });
             tKM += parseFloat(co.km)||0;
@@ -914,8 +915,12 @@ function buildLinhas(mesesIds) {
             m.exames.filter(function(ex) {
                 var dtEx = new Date(ex.data+'T'+ex.hora);
                 return dtOut ? (dtEx>=dtIn && dtEx<=dtOut) : (ex.data===co.data && ex.hora>=co.in);
-            }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
+            }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); usados[ex.id]=true; });
         });
+        /* Exames que nao caem dentro da janela de nenhuma corrida nao podem ser
+           descartados do relatorio - entram soltos ao final do mes/escala */
+        m.exames.filter(function(ex){ return !usados[ex.id]; })
+            .forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
         m.escalas.forEach(function(e){ tEsc += calcDiffFull(e.data,e.in,e.dataF,e.out); });
         m.escalas.forEach(function(e){ periodo.push(fmtD(e.data)+' a '+fmtD(e.dataF)); });
     });
@@ -930,6 +935,7 @@ function buildLinhasEscala(mid, escIdx) {
     var tEsc = calcDiffFull(esc.data,esc.in,esc.dataF,esc.out);
     var periodo = fmtD(esc.data)+' '+esc.in+' - '+fmtD(esc.dataF)+' '+esc.out;
     var linhas=[],tKM=0,tTrab=0;
+    var usados = {};
     m.corridas.filter(function(co){ var dt=new Date(co.data+'T'+co.in); return dt>=dtEscIn && dt<=dtEscOut; })
     .forEach(function(co) {
         linhas.push({ tipo:'corrida', co:co });
@@ -942,8 +948,15 @@ function buildLinhasEscala(mid, escIdx) {
         m.exames.filter(function(ex) {
             var dtEx=new Date(ex.data+'T'+ex.hora);
             return dtOut ? (dtEx>=dtIn && dtEx<=dtOut) : (ex.data===co.data && ex.hora>=co.in);
-        }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
+        }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); usados[ex.id]=true; });
     });
+    /* Exames dentro do periodo da escala que nao bateram com nenhuma corrida
+       tambem devem aparecer no relatorio */
+    m.exames.filter(function(ex){
+        if (usados[ex.id]) return false;
+        var dtEx = new Date(ex.data+'T'+ex.hora);
+        return dtEx>=dtEscIn && dtEx<=dtEscOut;
+    }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
     return { linhas:linhas, tKM:tKM, tTrab:tTrab, tEsc:tEsc, periodo:periodo };
 }
 function gerarRelatorioMultiEscala(mid, idxs, tipo, dataEntrega) {
