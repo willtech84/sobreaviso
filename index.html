@@ -903,24 +903,20 @@ function buildLinhas(mesesIds) {
     mesesIds.forEach(function(mid) {
         var m = allData.meses[mid]; if (!m) return;
         if (mesesIds.length > 1) linhas.push({ tipo:'mes', label:m.label });
-        var usados = {};
+        var itens = [];
         m.corridas.forEach(function(co) {
-            linhas.push({ tipo:'corrida', co:co });
             tKM += parseFloat(co.km)||0;
             var p = (co.tempo||'0:0').split(':').map(Number); tTrab += p[0]*60+p[1];
-            var dtIn = new Date(co.data+'T'+co.in);
-            var dataFim = co.data;
-            if (co.out && co.in && co.out <= co.in) { var dd=new Date(co.data); dd.setDate(dd.getDate()+1); dataFim=dd.toISOString().slice(0,10); }
-            var dtOut = co.out ? new Date(dataFim+'T'+co.out) : null;
-            m.exames.filter(function(ex) {
-                var dtEx = new Date(ex.data+'T'+ex.hora);
-                return dtOut ? (dtEx>=dtIn && dtEx<=dtOut) : (ex.data===co.data && ex.hora>=co.in);
-            }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); usados[ex.id]=true; });
+            itens.push({ tipo:'corrida', co:co, dt:new Date(co.data+'T'+(co.in||'00:00')) });
         });
-        /* Exames que nao caem dentro da janela de nenhuma corrida nao podem ser
-           descartados do relatorio - entram soltos ao final do mes/escala */
-        m.exames.filter(function(ex){ return !usados[ex.id]; })
-            .forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
+        m.exames.forEach(function(ex) {
+            itens.push({ tipo:'exame', ex:ex, dt:new Date(ex.data+'T'+(ex.hora||'00:00')) });
+        });
+        /* Ordena tudo por data/hora - assim nenhum exame fica preso a uma
+           corrida por janela de horario (o que fazia exames sumirem do
+           relatorio quando nao havia corrida cobrindo exatamente aquele horario) */
+        itens.sort(function(a,b){ return a.dt - b.dt; });
+        itens.forEach(function(it){ linhas.push(it); });
         m.escalas.forEach(function(e){ tEsc += calcDiffFull(e.data,e.in,e.dataF,e.out); });
         m.escalas.forEach(function(e){ periodo.push(fmtD(e.data)+' a '+fmtD(e.dataF)); });
     });
@@ -934,30 +930,23 @@ function buildLinhasEscala(mid, escIdx) {
     var dtEscOut = new Date(esc.dataF+'T'+esc.out);
     var tEsc = calcDiffFull(esc.data,esc.in,esc.dataF,esc.out);
     var periodo = fmtD(esc.data)+' '+esc.in+' - '+fmtD(esc.dataF)+' '+esc.out;
-    var linhas=[],tKM=0,tTrab=0;
-    var usados = {};
+    var tKM=0,tTrab=0;
+    var itens = [];
     m.corridas.filter(function(co){ var dt=new Date(co.data+'T'+co.in); return dt>=dtEscIn && dt<=dtEscOut; })
     .forEach(function(co) {
-        linhas.push({ tipo:'corrida', co:co });
         tKM += parseFloat(co.km)||0;
         var p = (co.tempo||'0:0').split(':').map(Number); tTrab += p[0]*60+p[1];
-        var dtIn = new Date(co.data+'T'+co.in);
-        var dataFim = co.data;
-        if (co.out && co.in && co.out <= co.in) { var dd=new Date(co.data); dd.setDate(dd.getDate()+1); dataFim=dd.toISOString().slice(0,10); }
-        var dtOut = co.out ? new Date(dataFim+'T'+co.out) : null;
-        m.exames.filter(function(ex) {
-            var dtEx=new Date(ex.data+'T'+ex.hora);
-            return dtOut ? (dtEx>=dtIn && dtEx<=dtOut) : (ex.data===co.data && ex.hora>=co.in);
-        }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); usados[ex.id]=true; });
+        itens.push({ tipo:'corrida', co:co, dt:new Date(co.data+'T'+(co.in||'00:00')) });
     });
-    /* Exames dentro do periodo da escala que nao bateram com nenhuma corrida
-       tambem devem aparecer no relatorio */
+    /* Exame entra no relatorio da escala pela data/hora do exame estar dentro
+       do periodo de sobreaviso - nao depende mais de bater com o horario
+       exato de uma corrida (isso fazia exames sumirem do relatorio) */
     m.exames.filter(function(ex){
-        if (usados[ex.id]) return false;
-        var dtEx = new Date(ex.data+'T'+ex.hora);
+        var dtEx = new Date(ex.data+'T'+(ex.hora||'00:00'));
         return dtEx>=dtEscIn && dtEx<=dtEscOut;
-    }).forEach(function(ex){ linhas.push({ tipo:'exame', ex:ex }); });
-    return { linhas:linhas, tKM:tKM, tTrab:tTrab, tEsc:tEsc, periodo:periodo };
+    }).forEach(function(ex){ itens.push({ tipo:'exame', ex:ex, dt:new Date(ex.data+'T'+(ex.hora||'00:00')) }); });
+    itens.sort(function(a,b){ return a.dt - b.dt; });
+    return { linhas:itens, tKM:tKM, tTrab:tTrab, tEsc:tEsc, periodo:periodo };
 }
 function gerarRelatorioMultiEscala(mid, idxs, tipo, dataEntrega) {
     var m = allData.meses[mid]; if (!m) return;
@@ -1024,7 +1013,7 @@ function _renderRelatorio(linhas, titulo, periodo, resumoTxt, tipo, dataEntrega)
             var body = linhas.map(function(l) {
                 if (l.tipo==='mes')     return [{ content:l.label, colSpan:5, styles:{fillColor:[21,101,192],textColor:255,fontStyle:'bold'} }];
                 if (l.tipo==='corrida') return [fmtD(l.co.data), l.co.in+'-'+(l.co.out||'?'), l.co.tempo, l.co.km||'', 'SETOR: '+(l.co.setor||'---')];
-                return ['','','','','* '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')'];
+                return [fmtD(l.ex.data), l.ex.hora, '', '', '* '+(l.ex.nome||'')+' ('+(l.ex.pac||'')+')'+(l.ex.setor?' - '+l.ex.setor:'')];
             });
             doc.autoTable({
                 startY: sy,
@@ -1060,7 +1049,7 @@ function _renderRelatorio(linhas, titulo, periodo, resumoTxt, tipo, dataEntrega)
     var rows = linhas.map(function(l) {
         if (l.tipo==='mes')     return '<tr style="background:#1565c0;color:white"><td colspan="5" style="padding:6px;font-weight:bold">'+l.label+'</td></tr>';
         if (l.tipo==='corrida') return '<tr style="background:#ddd;font-weight:bold"><td>'+fmtD(l.co.data)+'</td><td>'+l.co.in+'-'+(l.co.out||'?')+'</td><td>'+l.co.tempo+'</td><td>'+l.co.km+'</td><td>SETOR: '+(l.co.setor||'---')+'</td></tr>';
-        return '<tr><td colspan="4"></td><td style="font-size:8pt;font-style:italic">* '+l.ex.hora+' - '+l.ex.nome+' ('+l.ex.pac+')</td></tr>';
+        return '<tr><td>'+fmtD(l.ex.data)+'</td><td>'+(l.ex.hora||'')+'</td><td colspan="2"></td><td style="font-size:8pt;font-style:italic">* '+(l.ex.nome||'')+' ('+(l.ex.pac||'')+')'+(l.ex.setor?' - '+l.ex.setor:'')+'</td></tr>';
     }).join('');
     var html = '<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Relatorio</title>'
         + '<style>body{font-family:Arial;padding:20px;font-size:9pt}'
